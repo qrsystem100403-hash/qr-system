@@ -1,26 +1,116 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg: #080704;
+  --color-bg-deep: #050403;
+
+  --color-surface: #11100b;
+  --color-surface-soft: #17150f;
+  --color-surface-glass: rgba(17, 16, 11, 0.72);
+
+  --color-gold: #d6b64c;
+  --color-gold-soft: #f1cf61;
+  --color-gold-muted: #9f8126;
+
+  --color-text: #f7f0df;
+  --color-text-muted: rgba(247, 240, 223, 0.64);
+  --color-text-soft: rgba(247, 240, 223, 0.42);
+
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-gold: rgba(214, 182, 76, 0.38);
+
+  --color-success: #22c55e;
+  --color-danger: #ef4444;
+
+  --radius-sm: 14px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-xl: 36px;
+
+  --shadow-soft: 0 24px 80px rgba(0, 0, 0, 0.35);
+  --shadow-gold: 0 18px 50px rgba(214, 182, 76, 0.12);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(214, 182, 76, 0.08), transparent 34%),
+    radial-gradient(circle at top right, rgba(214, 182, 76, 0.05), transparent 30%),
+    var(--color-bg);
+  color: var(--color-text);
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: var(--color-gold);
+  color: #080704;
+}
+
+.premium-container {
+  width: min(100% - 32px, 1280px);
+  margin-inline: auto;
+}
+
+.premium-glass {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-soft);
+}
+
+.gold-gradient-text {
+  background: linear-gradient(135deg, var(--color-gold-soft), var(--color-gold), var(--color-gold-muted));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.soft-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-border-gold),
+    transparent
+  );
+}
+
+.font-heading {
+  font-family: var(--font-heading), serif;
+}
+
+.font-body {
+  font-family: var(--font-body), sans-serif;
+}
+
+.vertical-rl {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* trust bar */
+@keyframes trust-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-trust-scroll {
+  animation: trust-scroll 28s linear infinite;
 }
