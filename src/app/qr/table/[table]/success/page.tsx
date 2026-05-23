@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import QRSuccessClient from "@/modules/qr-ordering/components/QRSuccessClient"
-import { resolveRestaurant } from "@/lib/restaurantResolver"
+import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
 
 type Props = {
   params: Promise<{
@@ -18,13 +18,13 @@ export default async function QRSuccessPage({
   const { table } = await params
   const { orderId } = await searchParams
 
-  const restaurant = await resolveRestaurant()
+  const restaurant = await resolvePublicRestaurant()
 
   if (!restaurant) {
     notFound()
   }
 
-  const decodedTable = decodeURIComponent(table)
+  const decodedTable = decodeURIComponent(table).trim()
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[var(--color-bg)] px-4 py-5 text-[var(--color-text)] sm:px-6 lg:px-8">

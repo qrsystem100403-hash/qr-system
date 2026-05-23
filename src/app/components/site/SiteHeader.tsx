@@ -43,7 +43,7 @@ export function SiteHeader() {
 
         <div className="flex shrink-0 items-center gap-2">
           <Link
-            href="/owner/login"
+            href="/login"
             className="hidden items-center gap-2 rounded-full border border-[var(--color-border)] bg-white/[0.03] px-4 py-2.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--color-text-muted)] transition hover:border-[var(--color-border-gold)] hover:bg-[var(--color-gold)]/10 hover:text-[var(--color-gold)] md:inline-flex"
           >
             <LayoutDashboard className="size-4" strokeWidth={1.8} />

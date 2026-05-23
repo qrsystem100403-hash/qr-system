@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase/admin"
-import { resolveRestaurant } from "@/lib/restaurantResolver"
+import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
 
 const cartAddonSchema = z.object({
   id: z.string().uuid(),
@@ -82,9 +82,7 @@ function getIndiaCurrentMinutes() {
   }).formatToParts(new Date())
 
   const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0)
-  const minute = Number(
-    parts.find((part) => part.type === "minute")?.value ?? 0
-  )
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0)
 
   return hour * 60 + minute
 }
@@ -93,14 +91,8 @@ function isCategoryAvailable(category: MenuCategory | null | undefined) {
   if (!category?.available_from && !category?.available_until) return true
 
   const current = getIndiaCurrentMinutes()
-
-  const from = category.available_from
-    ? timeToMinutes(category.available_from)
-    : 0
-
-  const until = category.available_until
-    ? timeToMinutes(category.available_until)
-    : 24 * 60 - 1
+  const from = category.available_from ? timeToMinutes(category.available_from) : 0
+  const until = category.available_until ? timeToMinutes(category.available_until) : 24 * 60 - 1
 
   return current >= from && current <= until
 }
@@ -110,7 +102,6 @@ function formatTime(time: string | null) {
 
   const [hourRaw, minute] = time.split(":")
   const hour = Number(hourRaw)
-
   const suffix = hour >= 12 ? "PM" : "AM"
   const displayHour = hour % 12 || 12
 
@@ -135,9 +126,13 @@ function getAvailabilityMessage(category: MenuCategory | null | undefined) {
   )}`
 }
 
+function normalizeTableName(value: string) {
+  return decodeURIComponent(value).trim().replace(/\s+/g, "-")
+}
+
 export async function POST(request: Request) {
   try {
-    const restaurant = await resolveRestaurant()
+    const restaurant = await resolvePublicRestaurant()
 
     const body = await request.json()
     const parsed = orderSchema.safeParse(body)
@@ -150,15 +145,16 @@ export async function POST(request: Request) {
     }
 
     const { table, cart, customerNote } = parsed.data
-const decodedTable = decodeURIComponent(table).trim()
-const cleanedCustomerNote = customerNote?.trim() || null
 
-const { data: restaurantTable, error: tableError } = await supabaseAdmin
-  .from("restaurant_tables")
-  .select("id, name, is_active")
-  .eq("restaurant_id", restaurant.id)
-  .ilike("name", decodedTable)
-  .single()
+    const normalizedTable = normalizeTableName(table)
+    const cleanedCustomerNote = customerNote?.trim() || null
+
+    const { data: restaurantTable, error: tableError } = await supabaseAdmin
+      .from("restaurant_tables")
+      .select("id, name, is_active")
+      .eq("restaurant_id", restaurant.id)
+      .ilike("name", normalizedTable)
+      .single()
 
     if (tableError || !restaurantTable) {
       return NextResponse.json(
@@ -188,14 +184,7 @@ const { data: restaurantTable, error: tableError } = await supabaseAdmin
 
     const { data: menuItemsData, error: menuError } = await supabaseAdmin
       .from("menu_items")
-      .select(`
-        id,
-        name,
-        price,
-        category_id,
-        is_available,
-        is_archived
-      `)
+      .select("id, name, price, category_id, is_available, is_archived")
       .eq("restaurant_id", restaurant.id)
       .in("id", itemIds)
 
@@ -314,10 +303,7 @@ const { data: restaurantTable, error: tableError } = await supabaseAdmin
 
     if (blockedItem) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `${blockedItem.name} is currently unavailable`,
-        },
+        { success: false, error: `${blockedItem.name} is currently unavailable` },
         { status: 400 }
       )
     }
@@ -331,10 +317,7 @@ const { data: restaurantTable, error: tableError } = await supabaseAdmin
         ? categoriesMap.get(subCategory.parent_id)
         : null
 
-      return (
-        !isCategoryAvailable(subCategory) ||
-        !isCategoryAvailable(parentCategory)
-      )
+      return !isCategoryAvailable(subCategory) || !isCategoryAvailable(parentCategory)
     })
 
     if (timeBlockedItem) {
@@ -364,9 +347,7 @@ const { data: restaurantTable, error: tableError } = await supabaseAdmin
     const validatedCart = cart.map((cartItem) => {
       const dbItem = menuItems.find((item) => item.id === cartItem.id)
 
-      if (!dbItem) {
-        throw new Error("Invalid menu item")
-      }
+      if (!dbItem) throw new Error("Invalid menu item")
 
       let unitPrice = dbItem.price
       let variantName: string | null = null
@@ -406,13 +387,8 @@ const { data: restaurantTable, error: tableError } = await supabaseAdmin
 
       const itemNameParts = [dbItem.name]
 
-      if (variantName) {
-        itemNameParts.push(`(${variantName})`)
-      }
-
-      if (addonNames.length > 0) {
-        itemNameParts.push(`[${addonNames.join(", ")}]`)
-      }
+      if (variantName) itemNameParts.push(`(${variantName})`)
+      if (addonNames.length > 0) itemNameParts.push(`[${addonNames.join(", ")}]`)
 
       return {
         menuItemId: dbItem.id,
@@ -422,9 +398,10 @@ const { data: restaurantTable, error: tableError } = await supabaseAdmin
       }
     })
 
-    const total = validatedCart.reduce((sum, item) => {
-      return sum + item.unitPrice * item.quantity
-    }, 0)
+    const total = validatedCart.reduce(
+      (sum, item) => sum + item.unitPrice * item.quantity,
+      0
+    )
 
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
@@ -456,9 +433,7 @@ const { data: restaurantTable, error: tableError } = await supabaseAdmin
       .from("order_items")
       .insert(orderItems)
 
-    if (itemsError) {
-      throw new Error(itemsError.message)
-    }
+    if (itemsError) throw new Error(itemsError.message)
 
     return NextResponse.json({
       success: true,

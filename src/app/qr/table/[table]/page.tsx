@@ -1,5 +1,5 @@
 import QRMenuClient from "@/modules/qr-ordering/components/QRMenuClient"
-import { resolveRestaurant } from "@/lib/restaurantResolver"
+import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { AlertTriangle, Store, Utensils } from "lucide-react"
 
@@ -13,6 +13,10 @@ type ErrorStateProps = {
   title: string
   message: string
   tone: "red" | "yellow"
+}
+
+function normalizeTableName(value: string) {
+  return decodeURIComponent(value).trim().replace(/\s+/g, "-")
 }
 
 function ErrorState({ title, message, tone }: ErrorStateProps) {
@@ -45,16 +49,16 @@ function ErrorState({ title, message, tone }: ErrorStateProps) {
 export default async function QRTablePage({ params }: Props) {
   const { table } = await params
 
-  const restaurant = await resolveRestaurant()
+  const restaurant = await resolvePublicRestaurant()
   const supabase = await createSupabaseServerClient()
 
-  const decodedTable = decodeURIComponent(table)
+  const normalizedTable = normalizeTableName(table)
 
   const { data: restaurantTable, error: tableError } = await supabase
     .from("restaurant_tables")
     .select("id, name, is_active")
     .eq("restaurant_id", restaurant.id)
-    .eq("name", decodedTable)
+    .ilike("name", normalizedTable)
     .single()
 
   if (tableError || !restaurantTable) {

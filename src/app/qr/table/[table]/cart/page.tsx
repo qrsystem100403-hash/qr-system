@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import { resolveRestaurant } from "@/lib/restaurantResolver"
+import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
 import QRCartClient from "@/modules/qr-ordering/components/QRCartClient"
 
 type Props = {
@@ -11,13 +11,13 @@ type Props = {
 export default async function QRCartPage({ params }: Props) {
   const { table } = await params
 
-  const restaurant = await resolveRestaurant()
+  const restaurant = await resolvePublicRestaurant()
 
   if (!restaurant) {
     notFound()
   }
 
-  const decodedTable = decodeURIComponent(table)
+  const decodedTable = decodeURIComponent(table).trim()
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[var(--color-bg)] px-4 py-5 text-[var(--color-text)] sm:px-6 lg:px-8">
