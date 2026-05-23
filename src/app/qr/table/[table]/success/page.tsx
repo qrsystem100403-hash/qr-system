@@ -11,6 +11,10 @@ type Props = {
   }>
 }
 
+function normalizeTableName(value: string) {
+  return decodeURIComponent(value).trim().replace(/\s+/g, "-")
+}
+
 export default async function QRSuccessPage({
   params,
   searchParams,
@@ -24,13 +28,13 @@ export default async function QRSuccessPage({
     notFound()
   }
 
-  const decodedTable = decodeURIComponent(table).trim()
+  const normalizedTable = normalizeTableName(table)
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[var(--color-bg)] px-4 py-5 text-[var(--color-text)] sm:px-6 lg:px-8">
       <QRSuccessClient
         orderId={orderId}
-        table={decodedTable}
+        table={normalizedTable}
         restaurantId={restaurant.id}
       />
     </main>

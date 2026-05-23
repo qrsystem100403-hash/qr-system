@@ -13,36 +13,13 @@ export default function OrdersRealtime({ restaurantId }: Props) {
   const router = useRouter();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const unlockedRef = useRef(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [soundPreferred, setSoundPreferred] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [notificationEnabled, setNotificationEnabled] = useState(false);
   const [showNewOrderNotice, setShowNewOrderNotice] = useState(false);
   const [connecting, setConnecting] = useState(true);
-
-  const unlockSound = useCallback(async () => {
-    if (unlockedRef.current) return;
-
-    try {
-      const audio = audioRef.current;
-      if (!audio) return;
-
-      audio.muted = true;
-      await audio.play();
-      audio.pause();
-      audio.currentTime = 0;
-      audio.muted = false;
-
-      unlockedRef.current = true;
-
-      localStorage.setItem("orders-sound-enabled", "true");
-      setSoundPreferred(true);
-      setSoundEnabled(true);
-    } catch {
-      unlockedRef.current = false;
-    }
-  }, []);
 
   useEffect(() => {
     const audio = new Audio("/sounds/new-order.mp3");
@@ -54,7 +31,6 @@ export default function OrdersRealtime({ restaurantId }: Props) {
     const savedNotification =
       localStorage.getItem("orders-notification-enabled") === "true";
 
-    setSoundPreferred(savedSound);
     setSoundEnabled(savedSound);
 
     if (
@@ -64,33 +40,36 @@ export default function OrdersRealtime({ restaurantId }: Props) {
     ) {
       setNotificationEnabled(true);
     }
-
-    const handleFirstInteraction = () => {
-      if (savedSound) {
-        unlockSound();
-      }
-    };
-
-    window.addEventListener("click", handleFirstInteraction, { once: true });
-    window.addEventListener("touchstart", handleFirstInteraction, { once: true });
-
-    return () => {
-      window.removeEventListener("click", handleFirstInteraction);
-      window.removeEventListener("touchstart", handleFirstInteraction);
-    };
-  }, [unlockSound]);
+  }, []);
 
   const enableSound = async () => {
-    localStorage.setItem("orders-sound-enabled", "true");
-    setSoundPreferred(true);
-    setSoundEnabled(true);
+    try {
+      if (!audioRef.current) return;
 
-    await unlockSound();
+      audioRef.current.currentTime = 0;
+      await audioRef.current.play();
 
-    if (!unlockedRef.current) {
-      alert("Sound preference saved. Tap anywhere on this page once to unlock sound.");
+      localStorage.setItem("orders-sound-enabled", "true");
+      setSoundEnabled(true);
+    } catch (error) {
+      console.error("SOUND ENABLE ERROR:", error);
+      alert("Tap again to enable sound. Browser blocked autoplay.");
     }
   };
+
+  const playSound = useCallback(async () => {
+    if (!soundEnabled || !audioRef.current) return;
+
+    try {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      await audioRef.current.play();
+    } catch (error) {
+      console.error("PLAY SOUND ERROR:", error);
+      setSoundEnabled(false);
+      localStorage.removeItem("orders-sound-enabled");
+    }
+  }, [soundEnabled]);
 
   const enableNotifications = async () => {
     if (!("Notification" in window)) {
@@ -101,31 +80,12 @@ export default function OrdersRealtime({ restaurantId }: Props) {
     const permission = await Notification.requestPermission();
 
     if (permission === "granted") {
-      setNotificationEnabled(true);
       localStorage.setItem("orders-notification-enabled", "true");
+      setNotificationEnabled(true);
     } else {
-      setNotificationEnabled(false);
       localStorage.removeItem("orders-notification-enabled");
+      setNotificationEnabled(false);
       alert("Notification permission was blocked.");
-    }
-  };
-
-  const playSound = async () => {
-    if (!soundPreferred || !audioRef.current) return;
-
-    try {
-      if (!unlockedRef.current) {
-        await unlockSound();
-      }
-
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      await audioRef.current.play();
-
-      setSoundEnabled(true);
-    } catch (error) {
-      console.error("PLAY SOUND ERROR:", error);
-      setSoundEnabled(false);
     }
   };
 
@@ -134,41 +94,42 @@ export default function OrdersRealtime({ restaurantId }: Props) {
     if (Notification.permission !== "granted") return;
 
     new Notification("New order received", {
-  body: "A new table order has been placed.",
-  icon: "/favicon.ico",
-  tag: `new-order-${Date.now()}`,
-});
+      body: "A new table order has been placed.",
+      icon: "/favicon.ico",
+      tag: `new-order-${Date.now()}`,
+    });
   };
 
+  const refreshOrders = useCallback(() => {
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+    }
+
+    refreshTimerRef.current = setTimeout(() => {
+      router.refresh();
+    }, 300);
+  }, [router]);
+
+  const showNotice = () => {
+    setShowNewOrderNotice(true);
+
+    if (noticeTimerRef.current) {
+      clearTimeout(noticeTimerRef.current);
+    }
+
+    noticeTimerRef.current = setTimeout(() => {
+      setShowNewOrderNotice(false);
+    }, 4500);
+  };
+
+  const handleNewOrder = useCallback(async () => {
+    showNotice();
+    showBrowserNotification();
+    await playSound();
+    refreshOrders();
+  }, [playSound, refreshOrders]);
+
   useEffect(() => {
-    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
-    let noticeTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const refreshOrders = () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-
-      refreshTimer = setTimeout(() => {
-        router.refresh();
-      }, 250);
-    };
-
-    const showNotice = () => {
-      setShowNewOrderNotice(true);
-
-      if (noticeTimer) clearTimeout(noticeTimer);
-
-      noticeTimer = setTimeout(() => {
-        setShowNewOrderNotice(false);
-      }, 4500);
-    };
-
-    const handleNewOrder = async () => {
-      showNotice();
-      showBrowserNotification();
-      await playSound();
-      refreshOrders();
-    };
-
     const channel = supabaseBrowser
       .channel(`orders-realtime-${restaurantId}`)
       .on(
@@ -179,7 +140,9 @@ export default function OrdersRealtime({ restaurantId }: Props) {
           table: "orders",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        handleNewOrder
+        () => {
+          handleNewOrder();
+        }
       )
       .on(
         "postgres_changes",
@@ -189,19 +152,20 @@ export default function OrdersRealtime({ restaurantId }: Props) {
           table: "orders",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        refreshOrders
+        () => {
+          refreshOrders();
+        }
       )
       .subscribe((status) => {
+        console.log("ORDERS REALTIME STATUS:", status);
         setConnecting(status !== "SUBSCRIBED");
       });
 
-    const handleFocus = () => {
-      router.refresh();
-    };
+    const handleFocus = () => refreshOrders();
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        router.refresh();
+        refreshOrders();
       }
     };
 
@@ -209,20 +173,20 @@ export default function OrdersRealtime({ restaurantId }: Props) {
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      if (noticeTimer) clearTimeout(noticeTimer);
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
 
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
 
       supabaseBrowser.removeChannel(channel);
     };
-  }, [restaurantId, router, soundPreferred, unlockSound]);
+  }, [restaurantId, handleNewOrder, refreshOrders]);
 
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {!soundPreferred && (
+        {!soundEnabled && (
           <button
             type="button"
             onClick={enableSound}
@@ -248,12 +212,6 @@ export default function OrdersRealtime({ restaurantId }: Props) {
           <span className="inline-flex h-10 items-center gap-2 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-3 text-xs font-bold text-yellow-200">
             <Loader2 className="size-4 animate-spin" />
             Connecting live orders
-          </span>
-        )}
-
-        {soundPreferred && !soundEnabled && (
-          <span className="inline-flex h-10 items-center rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-3 text-xs font-bold text-yellow-200">
-            Tap once to unlock sound
           </span>
         )}
       </div>

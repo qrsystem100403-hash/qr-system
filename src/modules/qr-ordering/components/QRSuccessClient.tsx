@@ -94,22 +94,32 @@ export default function QRSuccessClient({
     const fetchOrder = async () => {
       setLoading(true)
 
-      const { data, error } = await supabaseBrowser
-        .from("orders")
-        .select(
-          "id, restaurant_id, table_name, total, order_status, payment_status, cancel_reason"
-        )
-        .eq("id", orderId)
-        .eq("restaurant_id", restaurantId)
-        .eq("table_name", table)
-        .single()
+      try {
+        const params = new URLSearchParams({
+          orderId,
+          table,
+        })
 
-      if (error) {
+        const response = await fetch(`/api/qr/orders/status?${params.toString()}`, {
+          method: "GET",
+          cache: "no-store",
+        })
+
+        const data = await response.json()
+
+        if (!response.ok || !data.success) {
+          console.error("ORDER STATUS FETCH ERROR:", data.error)
+          setOrder(null)
+          return
+        }
+
+        setOrder(data.order as Order)
+      } catch (error) {
         console.error("ORDER STATUS FETCH ERROR:", error)
+        setOrder(null)
+      } finally {
+        setLoading(false)
       }
-
-      setOrder(data as Order | null)
-      setLoading(false)
     }
 
     fetchOrder()
@@ -124,17 +134,8 @@ export default function QRSuccessClient({
           table: "orders",
           filter: `id=eq.${orderId}`,
         },
-        (payload) => {
-          const updatedOrder = payload.new as Order
-
-          if (
-            updatedOrder.restaurant_id !== restaurantId ||
-            updatedOrder.table_name !== table
-          ) {
-            return
-          }
-
-          setOrder(updatedOrder)
+        async () => {
+          await fetchOrder()
         }
       )
       .subscribe()
@@ -228,7 +229,9 @@ export default function QRSuccessClient({
 
           {!order ? (
             <div className="mt-5 rounded-2xl border border-[var(--color-border)] bg-black/20 p-4 text-sm text-[var(--color-text-muted)]">
-              {loading ? "Fetching latest order status..." : "No order details available."}
+              {loading
+                ? "Fetching latest order status..."
+                : "No order details available."}
             </div>
           ) : order.order_status === "cancelled" ? (
             <div className="mt-5 rounded-2xl border border-red-500/25 bg-red-500/10 p-4">

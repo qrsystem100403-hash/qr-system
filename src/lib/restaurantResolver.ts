@@ -8,7 +8,7 @@ export async function resolveRestaurant() {
   let domain = host?.split(":")[0]
 
   if (domain === "localhost" || domain === "127.0.0.1") {
-    domain = "spicehub.com"
+    domain = "localhost"
   }
 
   const supabase = await createSupabaseServerClient()

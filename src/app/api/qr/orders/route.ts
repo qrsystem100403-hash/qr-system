@@ -82,7 +82,9 @@ function getIndiaCurrentMinutes() {
   }).formatToParts(new Date())
 
   const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0)
-  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0)
+  const minute = Number(
+    parts.find((part) => part.type === "minute")?.value ?? 0
+  )
 
   return hour * 60 + minute
 }
@@ -91,8 +93,14 @@ function isCategoryAvailable(category: MenuCategory | null | undefined) {
   if (!category?.available_from && !category?.available_until) return true
 
   const current = getIndiaCurrentMinutes()
-  const from = category.available_from ? timeToMinutes(category.available_from) : 0
-  const until = category.available_until ? timeToMinutes(category.available_until) : 24 * 60 - 1
+
+  const from = category.available_from
+    ? timeToMinutes(category.available_from)
+    : 0
+
+  const until = category.available_until
+    ? timeToMinutes(category.available_until)
+    : 24 * 60 - 1
 
   return current >= from && current <= until
 }
@@ -102,6 +110,7 @@ function formatTime(time: string | null) {
 
   const [hourRaw, minute] = time.split(":")
   const hour = Number(hourRaw)
+
   const suffix = hour >= 12 ? "PM" : "AM"
   const displayHour = hour % 12 || 12
 
@@ -133,6 +142,13 @@ function normalizeTableName(value: string) {
 export async function POST(request: Request) {
   try {
     const restaurant = await resolvePublicRestaurant()
+
+    if (!restaurant) {
+      return NextResponse.json(
+        { success: false, error: "Restaurant not found" },
+        { status: 404 }
+      )
+    }
 
     const body = await request.json()
     const parsed = orderSchema.safeParse(body)
@@ -284,7 +300,9 @@ export async function POST(request: Request) {
             .eq("is_active", true)
             .in("id", parentIds)
 
-        if (parentCategoriesError) throw new Error(parentCategoriesError.message)
+        if (parentCategoriesError) {
+          throw new Error(parentCategoriesError.message)
+        }
 
         parentCategories = (parentCategoriesData ?? []) as MenuCategory[]
       }
@@ -303,7 +321,10 @@ export async function POST(request: Request) {
 
     if (blockedItem) {
       return NextResponse.json(
-        { success: false, error: `${blockedItem.name} is currently unavailable` },
+        {
+          success: false,
+          error: `${blockedItem.name} is currently unavailable`,
+        },
         { status: 400 }
       )
     }
@@ -317,7 +338,10 @@ export async function POST(request: Request) {
         ? categoriesMap.get(subCategory.parent_id)
         : null
 
-      return !isCategoryAvailable(subCategory) || !isCategoryAvailable(parentCategory)
+      return (
+        !isCategoryAvailable(subCategory) ||
+        !isCategoryAvailable(parentCategory)
+      )
     })
 
     if (timeBlockedItem) {
@@ -347,7 +371,9 @@ export async function POST(request: Request) {
     const validatedCart = cart.map((cartItem) => {
       const dbItem = menuItems.find((item) => item.id === cartItem.id)
 
-      if (!dbItem) throw new Error("Invalid menu item")
+      if (!dbItem) {
+        throw new Error("Invalid menu item")
+      }
 
       let unitPrice = dbItem.price
       let variantName: string | null = null
@@ -387,8 +413,13 @@ export async function POST(request: Request) {
 
       const itemNameParts = [dbItem.name]
 
-      if (variantName) itemNameParts.push(`(${variantName})`)
-      if (addonNames.length > 0) itemNameParts.push(`[${addonNames.join(", ")}]`)
+      if (variantName) {
+        itemNameParts.push(`(${variantName})`)
+      }
+
+      if (addonNames.length > 0) {
+        itemNameParts.push(`[${addonNames.join(", ")}]`)
+      }
 
       return {
         menuItemId: dbItem.id,
@@ -433,7 +464,9 @@ export async function POST(request: Request) {
       .from("order_items")
       .insert(orderItems)
 
-    if (itemsError) throw new Error(itemsError.message)
+    if (itemsError) {
+      throw new Error(itemsError.message)
+    }
 
     return NextResponse.json({
       success: true,

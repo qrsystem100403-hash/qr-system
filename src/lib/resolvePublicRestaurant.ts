@@ -1,15 +1,14 @@
-// src/lib/resolvePublicRestaurant.ts
-
+// src/lib/publicRestaurantResolver.ts
 import { headers } from "next/headers"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 
-function cleanHost(host: string) {
+function normalizeHost(host: string) {
   return host
     .replace(/^https?:\/\//, "")
     .replace(/^www\./, "")
     .split(":")[0]
-    .toLowerCase()
     .trim()
+    .toLowerCase()
 }
 
 export async function resolvePublicRestaurant() {
@@ -20,21 +19,17 @@ export async function resolvePublicRestaurant() {
     headersList.get("host") ||
     ""
 
-  const domain = cleanHost(host)
+  const domain = normalizeHost(host)
 
-  if (!domain) {
-    throw new Error("Domain not found")
-  }
-
-  const { data, error } = await supabaseAdmin
+  const { data: restaurant, error } = await supabaseAdmin
     .from("restaurants")
-    .select("*")
-    .ilike("domain", domain)
+    .select("id, name, domain")
+    .eq("domain", domain)
     .single()
 
-  if (error || !data) {
-    throw new Error(`Restaurant not found for domain: ${domain}`)
+  if (error || !restaurant) {
+    return null
   }
 
-  return data
+  return restaurant
 }

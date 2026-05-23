@@ -1,6 +1,6 @@
 import QRMenuClient from "@/modules/qr-ordering/components/QRMenuClient"
 import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { AlertTriangle, Store, Utensils } from "lucide-react"
 
 type Props = {
@@ -39,7 +39,6 @@ function ErrorState({ title, message, tone }: ErrorStateProps) {
         </div>
 
         <h1 className="mt-5 font-heading text-3xl font-normal">{title}</h1>
-
         <p className="mt-3 text-sm leading-6 opacity-80">{message}</p>
       </div>
     </main>
@@ -49,12 +48,24 @@ function ErrorState({ title, message, tone }: ErrorStateProps) {
 export default async function QRTablePage({ params }: Props) {
   const { table } = await params
 
-  const restaurant = await resolvePublicRestaurant()
-  const supabase = await createSupabaseServerClient()
-
   const normalizedTable = normalizeTableName(table)
 
-  const { data: restaurantTable, error: tableError } = await supabase
+  console.log("TABLE FROM URL:", table)
+  console.log("NORMALIZED TABLE:", normalizedTable)
+
+  const restaurant = await resolvePublicRestaurant()
+
+  if (!restaurant) {
+    return (
+      <ErrorState
+        tone="red"
+        title="Restaurant Not Found"
+        message="This restaurant domain is not connected correctly."
+      />
+    )
+  }
+
+  const { data: restaurantTable, error: tableError } = await supabaseAdmin
     .from("restaurant_tables")
     .select("id, name, is_active")
     .eq("restaurant_id", restaurant.id)
@@ -62,6 +73,8 @@ export default async function QRTablePage({ params }: Props) {
     .single()
 
   if (tableError || !restaurantTable) {
+    console.error("TABLE LOAD ERROR:", tableError)
+
     return (
       <ErrorState
         tone="red"
@@ -81,7 +94,7 @@ export default async function QRTablePage({ params }: Props) {
     )
   }
 
-  const { data: menu, error } = await supabase
+  const { data: menu, error } = await supabaseAdmin
     .from("menu_items")
     .select(`
       id,
