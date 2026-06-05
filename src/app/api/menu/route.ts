@@ -1,20 +1,10 @@
 import { NextResponse } from "next/server"
 import { getMenuService } from "@/modules/qr-ordering/services/menuService"
-import { getRestaurantBySlug } from "@/modules/qr-ordering/repositories/restaurantRepository"
+import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url)
-    const slug = searchParams.get("slug")?.trim()
-
-    if (!slug) {
-      return NextResponse.json(
-        { success: false, error: "Restaurant slug required" },
-        { status: 400 }
-      )
-    }
-
-    const restaurant = await getRestaurantBySlug(slug)
+    const restaurant = await resolvePublicRestaurant()
 
     if (!restaurant) {
       return NextResponse.json(

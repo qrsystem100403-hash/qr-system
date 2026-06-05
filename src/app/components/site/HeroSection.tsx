@@ -56,7 +56,7 @@ export function HeroSection() {
             <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
               <PremiumButton
                 href="#menu"
-                className="w-full rounded-xl px-7 py-4 sm:w-auto"
+                className="w-full rounded-none px-7 py-4 sm:w-auto"
               >
                 Order Food Online
               </PremiumButton>
@@ -64,7 +64,7 @@ export function HeroSection() {
               <PremiumButton
                 href="#menu"
                 variant="outline"
-                className="w-full rounded-xl px-7 py-4 sm:w-auto"
+                className="w-full rounded-none px-7 py-4 sm:w-auto"
               >
                 Explore Our Menu
               </PremiumButton>

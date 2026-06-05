@@ -17,7 +17,7 @@ export function PremiumButton({
   className = "",
 }: PremiumButtonProps) {
   const baseClass =
-    "inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] transition duration-300 active:scale-[0.98]";
+    "inline-flex items-center justify-center gap-2 rounded-none px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] transition duration-300 active:scale-[0.98]";
 
   const variants = {
     gold:

@@ -8,6 +8,7 @@ type Props = {
   }>
   searchParams: Promise<{
     orderId?: string
+    trackingToken?: string
   }>
 }
 
@@ -20,7 +21,7 @@ export default async function QRSuccessPage({
   searchParams,
 }: Props) {
   const { table } = await params
-  const { orderId } = await searchParams
+  const { orderId, trackingToken } = await searchParams
 
   const restaurant = await resolvePublicRestaurant()
 
@@ -34,8 +35,10 @@ export default async function QRSuccessPage({
     <main className="min-h-screen overflow-x-hidden bg-[var(--color-bg)] px-4 py-5 text-[var(--color-text)] sm:px-6 lg:px-8">
       <QRSuccessClient
         orderId={orderId}
+        trackingToken={trackingToken}
         table={normalizedTable}
         restaurantId={restaurant.id}
+        restaurantPhone={restaurant.phone ?? null}
       />
     </main>
   )

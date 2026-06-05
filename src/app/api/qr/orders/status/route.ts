@@ -1,3 +1,5 @@
+// src/app/api/qr/orders/route.ts
+
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase/admin"
@@ -5,7 +7,8 @@ import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
 
 const statusQuerySchema = z.object({
   orderId: z.string().uuid(),
-  table: z.string().min(1).max(20),
+  trackingToken: z.string().trim().min(4).max(32),
+  table: z.string().trim().min(1).max(20),
 })
 
 function normalizeTableName(value: string) {
@@ -27,6 +30,7 @@ export async function GET(request: Request) {
 
     const parsed = statusQuerySchema.safeParse({
       orderId: searchParams.get("orderId"),
+      trackingToken: searchParams.get("trackingToken"),
       table: searchParams.get("table"),
     })
 
@@ -37,17 +41,31 @@ export async function GET(request: Request) {
       )
     }
 
-    const { orderId, table } = parsed.data
+    const { orderId, trackingToken, table } = parsed.data
     const normalizedTable = normalizeTableName(table)
+
+    const { data: restaurantTable } = await supabaseAdmin
+  .from("restaurant_tables")
+  .select("id")
+  .eq("restaurant_id", restaurant.id)
+  .ilike("name", normalizedTable)
+  .single()
+
+if (!restaurantTable) {
+  return NextResponse.json(
+    { success: false, error: "Invalid table" },
+    { status: 400 }
+  )
+}
 
     const { data: order, error } = await supabaseAdmin
       .from("orders")
       .select(
-        "id, restaurant_id, table_name, total, order_status, payment_status, cancel_reason"
-      )
+  "id, tracking_token, table_id, table_name, total, order_status, payment_status, cancel_reason, created_at" )
       .eq("id", orderId)
+      .eq("tracking_token", trackingToken.toUpperCase())
       .eq("restaurant_id", restaurant.id)
-      .ilike("table_name", normalizedTable)
+      .eq("table_id", restaurantTable.id)
       .single()
 
     if (error || !order) {
@@ -65,11 +83,7 @@ export async function GET(request: Request) {
     console.error("QR ORDER STATUS ERROR:", error)
 
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to fetch order status",
-      },
+      { success: false, error: "Failed to fetch order status" },
       { status: 500 }
     )
   }

@@ -2,10 +2,12 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
 
+const ALLOWED_ORDER_STATUS_ROLES = ["owner", "manager", "staff", "kitchen"] as const
+
 const schema = z.object({
   orderId: z.string().uuid(),
   status: z.enum(["preparing", "ready", "served", "cancelled"]),
-  cancelReason: z.string().optional(),
+  cancelReason: z.string().trim().max(200).optional(),
 })
 
 type OrderStatus = "pending" | "preparing" | "ready" | "served" | "cancelled"
@@ -18,9 +20,32 @@ const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
   cancelled: [],
 }
 
+function canUpdateOrderStatus(role: string) {
+  return ALLOWED_ORDER_STATUS_ROLES.includes(
+    role as (typeof ALLOWED_ORDER_STATUS_ROLES)[number]
+  )
+}
+
+function isOrderStatus(value: unknown): value is OrderStatus {
+  return (
+    value === "pending" ||
+    value === "preparing" ||
+    value === "ready" ||
+    value === "served" ||
+    value === "cancelled"
+  )
+}
+
 export async function PATCH(request: Request) {
   try {
-    const { restaurant, supabase } = await requireRestaurantUser()
+    const { restaurant, supabase, role } = await requireRestaurantUser()
+
+    if (!canUpdateOrderStatus(role)) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      )
+    }
 
     const body = await request.json()
     const parsed = schema.safeParse(body)
@@ -33,7 +58,7 @@ export async function PATCH(request: Request) {
     }
 
     const { orderId, status, cancelReason } = parsed.data
-    const cleanCancelReason = cancelReason?.trim() ?? ""
+    const cleanCancelReason = cancelReason ?? ""
 
     if (status === "cancelled" && !cleanCancelReason) {
       return NextResponse.json(
@@ -56,9 +81,21 @@ export async function PATCH(request: Request) {
       )
     }
 
-    const currentStatus = existingOrder.order_status as OrderStatus
+    const currentStatus = existingOrder.order_status
 
-    if (!allowedTransitions[currentStatus]?.includes(status)) {
+    if (!isOrderStatus(currentStatus)) {
+      console.error("UNKNOWN ORDER STATUS:", {
+        orderId,
+        currentStatus,
+      })
+
+      return NextResponse.json(
+        { success: false, error: "Invalid current order status" },
+        { status: 400 }
+      )
+    }
+
+    if (!allowedTransitions[currentStatus].includes(status)) {
       return NextResponse.json(
         { success: false, error: "Invalid status flow" },
         { status: 400 }
@@ -73,13 +110,16 @@ export async function PATCH(request: Request) {
       })
       .eq("id", orderId)
       .eq("restaurant_id", restaurant.id)
+      .eq("order_status", currentStatus)
       .select("id")
       .single()
 
     if (error || !data) {
+      console.error("ORDER STATUS UPDATE DB ERROR:", error)
+
       return NextResponse.json(
-        { success: false, error: "Failed to update order" },
-        { status: 400 }
+        { success: false, error: "Order was already updated. Refresh and try again." },
+        { status: 409 }
       )
     }
 

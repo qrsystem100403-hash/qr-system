@@ -3,35 +3,34 @@ import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
 
+const MAX_ITEM_QUANTITY = 20
+const MAX_TOTAL_QUANTITY = 100
+const MAX_ORDER_TOTAL = 100000
+
+class OrderValidationError extends Error {
+  status = 400
+}
+
 const cartAddonSchema = z.object({
   id: z.string().uuid(),
-  name: z.string(),
-  price: z.number().min(0),
 })
 
 const cartVariantSchema = z.object({
   id: z.string().uuid(),
-  name: z.string(),
-  price: z.number().positive(),
 })
 
 const cartItemSchema = z.object({
-  cartKey: z.string().min(1),
+  cartKey: z.string().min(1).max(300),
   id: z.string().uuid(),
-  restaurantId: z.string().uuid(),
-  name: z.string(),
-  basePrice: z.number().positive(),
-  price: z.number().positive(),
-  image: z.string().nullable().optional(),
-  quantity: z.number().int().positive(),
+  quantity: z.number().int().min(1).max(MAX_ITEM_QUANTITY),
   variant: cartVariantSchema.nullable(),
   addons: z.array(cartAddonSchema).max(10),
 })
 
 const orderSchema = z.object({
-  table: z.string().min(1).max(20),
+  table: z.string().trim().min(1).max(20),
   cart: z.array(cartItemSchema).min(1).max(50),
-  customerNote: z.string().max(300).optional(),
+  customerNote: z.string().trim().max(300).optional(),
 })
 
 type MenuItem = {
@@ -82,9 +81,7 @@ function getIndiaCurrentMinutes() {
   }).formatToParts(new Date())
 
   const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0)
-  const minute = Number(
-    parts.find((part) => part.type === "minute")?.value ?? 0
-  )
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0)
 
   return hour * 60 + minute
 }
@@ -93,11 +90,7 @@ function isCategoryAvailable(category: MenuCategory | null | undefined) {
   if (!category?.available_from && !category?.available_until) return true
 
   const current = getIndiaCurrentMinutes()
-
-  const from = category.available_from
-    ? timeToMinutes(category.available_from)
-    : 0
-
+  const from = category.available_from ? timeToMinutes(category.available_from) : 0
   const until = category.available_until
     ? timeToMinutes(category.available_until)
     : 24 * 60 - 1
@@ -110,7 +103,6 @@ function formatTime(time: string | null) {
 
   const [hourRaw, minute] = time.split(":")
   const hour = Number(hourRaw)
-
   const suffix = hour >= 12 ? "PM" : "AM"
   const displayHour = hour % 12 || 12
 
@@ -139,7 +131,36 @@ function normalizeTableName(value: string) {
   return decodeURIComponent(value).trim().replace(/\s+/g, "-")
 }
 
+function getClientIp(request: Request) {
+  const forwardedFor = request.headers.get("x-forwarded-for")
+  if (forwardedFor) return forwardedFor.split(",")[0]?.trim() ?? "unknown"
+
+  return (
+    request.headers.get("x-real-ip") ||
+    request.headers.get("cf-connecting-ip") ||
+    "unknown"
+  )
+}
+
+async function rollbackOrder(orderId: string) {
+  const { data: items } = await supabaseAdmin
+    .from("order_items")
+    .select("id")
+    .eq("order_id", orderId)
+
+  const itemIds = (items ?? []).map((item) => item.id)
+
+  if (itemIds.length > 0) {
+    await supabaseAdmin.from("order_item_addons").delete().in("order_item_id", itemIds)
+  }
+
+  await supabaseAdmin.from("order_items").delete().eq("order_id", orderId)
+  await supabaseAdmin.from("orders").delete().eq("id", orderId)
+}
+
 export async function POST(request: Request) {
+  let createdOrderId: string | null = null
+
   try {
     const restaurant = await resolvePublicRestaurant()
 
@@ -161,9 +182,45 @@ export async function POST(request: Request) {
     }
 
     const { table, cart, customerNote } = parsed.data
+    const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0)
+
+    if (totalQuantity > MAX_TOTAL_QUANTITY) {
+      return NextResponse.json(
+        { success: false, error: "Too many items in one order" },
+        { status: 400 }
+      )
+    }
 
     const normalizedTable = normalizeTableName(table)
-    const cleanedCustomerNote = customerNote?.trim() || null
+    const cleanedCustomerNote = customerNote || null
+    const clientIp = getClientIp(request)
+
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+
+    const { count: recentOrderCount, error: recentOrderError } =
+      await supabaseAdmin
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("restaurant_id", restaurant.id)
+        .eq("table_name", normalizedTable)
+        .gte("created_at", fiveMinutesAgo)
+
+    if (recentOrderError) {
+      console.error("QR ORDER RATE CHECK ERROR:", recentOrderError)
+    }
+
+    if ((recentOrderCount ?? 0) >= 10) {
+      return NextResponse.json(
+        { success: false, error: "Too many orders from this table. Try again shortly." },
+        { status: 429 }
+      )
+    }
+
+    console.info("QR ORDER ATTEMPT:", {
+      restaurantId: restaurant.id,
+      table: normalizedTable,
+      clientIp,
+    })
 
     const { data: restaurantTable, error: tableError } = await supabaseAdmin
       .from("restaurant_tables")
@@ -204,7 +261,10 @@ export async function POST(request: Request) {
       .eq("restaurant_id", restaurant.id)
       .in("id", itemIds)
 
-    if (menuError) throw new Error(menuError.message)
+    if (menuError) {
+      console.error("QR ORDER MENU FETCH ERROR:", menuError)
+      throw new Error("Menu validation failed")
+    }
 
     const menuItems = (menuItemsData ?? []) as MenuItem[]
 
@@ -215,9 +275,13 @@ export async function POST(request: Request) {
       )
     }
 
-    const variantIds = cart
-      .map((item) => item.variant?.id)
-      .filter((id): id is string => Boolean(id))
+    const variantIds = Array.from(
+      new Set(
+        cart
+          .map((item) => item.variant?.id)
+          .filter((id): id is string => Boolean(id))
+      )
+    )
 
     let variantsMap = new Map<string, MenuVariant>()
 
@@ -228,7 +292,10 @@ export async function POST(request: Request) {
         .eq("restaurant_id", restaurant.id)
         .in("id", variantIds)
 
-      if (variantsError) throw new Error(variantsError.message)
+      if (variantsError) {
+        console.error("QR ORDER VARIANT FETCH ERROR:", variantsError)
+        throw new Error("Variant validation failed")
+      }
 
       variantsMap = new Map(
         ((variantsData ?? []) as MenuVariant[]).map((variant) => [
@@ -251,7 +318,10 @@ export async function POST(request: Request) {
         .eq("restaurant_id", restaurant.id)
         .in("id", addonIds)
 
-      if (addonsError) throw new Error(addonsError.message)
+      if (addonsError) {
+        console.error("QR ORDER ADDON FETCH ERROR:", addonsError)
+        throw new Error("Add-on validation failed")
+      }
 
       addonsMap = new Map(
         ((addonsData ?? []) as MenuAddon[]).map((addon) => [addon.id, addon])
@@ -277,7 +347,10 @@ export async function POST(request: Request) {
           .eq("is_active", true)
           .in("id", categoryIds)
 
-      if (directCategoriesError) throw new Error(directCategoriesError.message)
+      if (directCategoriesError) {
+        console.error("QR ORDER CATEGORY FETCH ERROR:", directCategoriesError)
+        throw new Error("Category validation failed")
+      }
 
       const directCategories = (directCategoriesData ?? []) as MenuCategory[]
 
@@ -301,7 +374,8 @@ export async function POST(request: Request) {
             .in("id", parentIds)
 
         if (parentCategoriesError) {
-          throw new Error(parentCategoriesError.message)
+          console.error("QR ORDER PARENT CATEGORY FETCH ERROR:", parentCategoriesError)
+          throw new Error("Category validation failed")
         }
 
         parentCategories = (parentCategoriesData ?? []) as MenuCategory[]
@@ -321,10 +395,7 @@ export async function POST(request: Request) {
 
     if (blockedItem) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `${blockedItem.name} is currently unavailable`,
-        },
+        { success: false, error: `${blockedItem.name} is currently unavailable` },
         { status: 400 }
       )
     }
@@ -360,9 +431,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: `${timeBlockedItem.name} is ${getAvailabilityMessage(
-            blockedCategory
-          )}`,
+          error: `${timeBlockedItem.name} is ${getAvailabilityMessage(blockedCategory)}`,
         },
         { status: 400 }
       )
@@ -372,12 +441,12 @@ export async function POST(request: Request) {
       const dbItem = menuItems.find((item) => item.id === cartItem.id)
 
       if (!dbItem) {
-        throw new Error("Invalid menu item")
+        throw new OrderValidationError("Some cart items are no longer available")
       }
 
       let unitPrice = dbItem.price
+      let variantId: string | null = null
       let variantName: string | null = null
-      const addonNames: string[] = []
 
       if (cartItem.variant) {
         const dbVariant = variantsMap.get(cartItem.variant.id)
@@ -387,12 +456,19 @@ export async function POST(request: Request) {
           dbVariant.menu_item_id !== cartItem.id ||
           !dbVariant.is_available
         ) {
-          throw new Error(`Invalid variant for ${dbItem.name}`)
+          throw new OrderValidationError(`${dbItem.name} option is no longer available`)
         }
 
         unitPrice = dbVariant.price
+        variantId = dbVariant.id
         variantName = dbVariant.name
       }
+
+      const addons: {
+        addonId: string
+        addonName: string
+        addonPrice: number
+      }[] = []
 
       for (const cartAddon of cartItem.addons) {
         const dbAddon = addonsMap.get(cartAddon.id)
@@ -401,31 +477,29 @@ export async function POST(request: Request) {
           !dbAddon ||
           dbAddon.menu_item_id !== cartItem.id ||
           !dbAddon.is_active ||
-          (dbAddon.variant_id &&
-            dbAddon.variant_id !== (cartItem.variant?.id ?? null))
+          (dbAddon.variant_id && dbAddon.variant_id !== (cartItem.variant?.id ?? null))
         ) {
-          throw new Error(`Invalid add-on for ${dbItem.name}`)
+          throw new OrderValidationError(`${dbItem.name} add-on is no longer available`)
         }
 
         unitPrice += dbAddon.price
-        addonNames.push(`${dbAddon.name} +₹${dbAddon.price}`)
-      }
 
-      const itemNameParts = [dbItem.name]
-
-      if (variantName) {
-        itemNameParts.push(`(${variantName})`)
-      }
-
-      if (addonNames.length > 0) {
-        itemNameParts.push(`[${addonNames.join(", ")}]`)
+        addons.push({
+          addonId: dbAddon.id,
+          addonName: dbAddon.name,
+          addonPrice: dbAddon.price,
+        })
       }
 
       return {
+        cartKey: cartItem.cartKey,
         menuItemId: dbItem.id,
-        itemName: itemNameParts.join(" "),
+        itemName: dbItem.name,
+        variantId,
+        variantName,
         unitPrice,
         quantity: cartItem.quantity,
+        addons,
       }
     })
 
@@ -434,52 +508,120 @@ export async function POST(request: Request) {
       0
     )
 
+    if (total <= 0 || total > MAX_ORDER_TOTAL) {
+      return NextResponse.json(
+        { success: false, error: "Invalid order total" },
+        { status: 400 }
+      )
+    }
+
     const { data: order, error: orderError } = await supabaseAdmin
-      .from("orders")
-      .insert({
-        restaurant_id: restaurant.id,
-        order_type: "dine_in",
-        table_name: restaurantTable.name,
-        total,
-        order_status: "pending",
-        payment_status: "pending",
-        customer_note: cleanedCustomerNote,
-      })
-      .select("id")
+  .from("orders")
+  .insert({
+    restaurant_id: restaurant.id,
+    table_id: restaurantTable.id,
+    order_type: "dine_in",
+    table_name: restaurantTable.name,
+    total,
+    order_status: "pending",
+    payment_status: "pending",
+    customer_note: cleanedCustomerNote,
+  })
+      .select("id, tracking_token")
       .single()
 
     if (orderError || !order) {
-      throw new Error(orderError?.message || "Failed to create order")
+      console.error("QR ORDER INSERT ERROR:", orderError)
+      throw new Error("Failed to create order")
     }
+
+    createdOrderId = order.id
 
     const orderItems = validatedCart.map((item) => ({
       order_id: order.id,
       menu_item_id: item.menuItemId,
+      variant_id: item.variantId,
+      variant_name: item.variantName,
       item_name: item.itemName,
       item_price: item.unitPrice,
       qty: item.quantity,
     }))
 
-    const { error: itemsError } = await supabaseAdmin
+    const { data: insertedItems, error: itemsError } = await supabaseAdmin
       .from("order_items")
       .insert(orderItems)
+      .select("id, menu_item_id, variant_id, item_name")
 
-    if (itemsError) {
-      throw new Error(itemsError.message)
+    if (itemsError || !insertedItems) {
+      console.error("QR ORDER ITEMS INSERT ERROR:", itemsError)
+      await rollbackOrder(order.id)
+
+      return NextResponse.json(
+        { success: false, error: "Failed to place order" },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      orderId: order.id,
+    const addonRows = validatedCart.flatMap((cartItem, index) => {
+      const insertedItem = insertedItems[index]
+
+      if (!insertedItem) return []
+
+      return cartItem.addons.map((addon) => ({
+        order_item_id: insertedItem.id,
+        addon_id: addon.addonId,
+        addon_name: addon.addonName,
+        addon_price: addon.addonPrice,
+      }))
     })
+
+    if (addonRows.length > 0) {
+  const { error: addonsInsertError } = await supabaseAdmin
+    .from("order_item_addons")
+    .insert(addonRows)
+
+  if (addonsInsertError) {
+    console.error("QR ORDER ITEM ADDONS INSERT ERROR:", addonsInsertError)
+    await rollbackOrder(order.id)
+
+    return NextResponse.json(
+      { success: false, error: "Failed to place order" },
+      { status: 500 }
+    )
+  }
+}
+
+await supabaseAdmin
+  .from("restaurant_tables")
+  .update({
+    status: "occupied",
+    last_activity_at: new Date().toISOString(),
+  })
+  .eq("id", restaurantTable.id)
+
+createdOrderId = null
+
+return NextResponse.json({
+  success: true,
+  orderId: order.id,
+  trackingToken: order.tracking_token,
+})
   } catch (error) {
     console.error("QR ORDER ERROR:", error)
 
+    if (createdOrderId) {
+      await rollbackOrder(createdOrderId)
+    }
+
+    if (error instanceof OrderValidationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      )
+    }
+
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to place order",
-      },
+      { success: false, error: "Failed to place order" },
       { status: 500 }
     )
   }

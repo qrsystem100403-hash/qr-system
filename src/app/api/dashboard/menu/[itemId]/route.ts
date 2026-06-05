@@ -22,12 +22,14 @@ const ALLOWED_BADGES = [
   "Must Try",
 ] as const
 
+const ALLOWED_MENU_ROLES = ["owner", "manager"] as const
+
 const schema = z.object({
-  name: z.string().min(1).max(100),
-  price: z.number().positive(),
+  name: z.string().trim().min(1).max(100),
+  price: z.number().positive().max(99999),
   categoryId: z.string().uuid(),
-  image: z.string().nullable().optional(),
-  imagePublicId: z.string().nullable().optional(),
+  image: z.string().url().nullable().optional(),
+  imagePublicId: z.string().trim().max(255).nullable().optional(),
   isAvailable: z.boolean(),
   tag: z.array(z.enum(ALLOWED_BADGES)).max(3).optional(),
 })
@@ -38,10 +40,29 @@ type Props = {
   }>
 }
 
+function canManageMenu(role: string) {
+  return ALLOWED_MENU_ROLES.includes(role as (typeof ALLOWED_MENU_ROLES)[number])
+}
+
+async function safeDeleteCloudinaryImage(publicId: string) {
+  try {
+    await cloudinary.uploader.destroy(publicId)
+  } catch (error) {
+    console.error("CLOUDINARY DELETE ERROR:", error)
+  }
+}
+
 export async function PATCH(request: Request, { params }: Props) {
   try {
     const { itemId } = await params
-    const { restaurant, supabase } = await requireRestaurantUser()
+    const { restaurant, supabase, role } = await requireRestaurantUser()
+
+    if (!canManageMenu(role)) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      )
+    }
 
     const body = await request.json()
     const parsed = schema.safeParse(body)
@@ -105,10 +126,10 @@ export async function PATCH(request: Request, { params }: Props) {
       tag: string[]
       image_public_id?: string | null
     } = {
-      name: name.trim(),
+      name,
       price,
       category_id: categoryId,
-      image: image || null,
+      image: image ?? null,
       is_available: isAvailable,
       tag: cleanedTag,
     }
@@ -130,10 +151,7 @@ export async function PATCH(request: Request, { params }: Props) {
       console.error("SUPABASE MENU UPDATE ERROR:", error)
 
       return NextResponse.json(
-        {
-          success: false,
-          error: error?.message || "Failed to update menu item",
-        },
+        { success: false, error: "Failed to update menu item" },
         { status: 500 }
       )
     }
@@ -141,7 +159,7 @@ export async function PATCH(request: Request, { params }: Props) {
     const oldPublicId = existingItem.image_public_id
 
     if (oldPublicId && imagePublicId && oldPublicId !== imagePublicId) {
-      await cloudinary.uploader.destroy(oldPublicId)
+      await safeDeleteCloudinaryImage(oldPublicId)
     }
 
     return NextResponse.json({ success: true })
@@ -149,13 +167,7 @@ export async function PATCH(request: Request, { params }: Props) {
     console.error("MENU ITEM UPDATE ERROR:", error)
 
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to update menu item",
-      },
+      { success: false, error: "Failed to update menu item" },
       { status: 500 }
     )
   }
@@ -164,7 +176,14 @@ export async function PATCH(request: Request, { params }: Props) {
 export async function DELETE(_request: Request, { params }: Props) {
   try {
     const { itemId } = await params
-    const { restaurant, supabase } = await requireRestaurantUser()
+    const { restaurant, supabase, role } = await requireRestaurantUser()
+
+    if (!canManageMenu(role)) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      )
+    }
 
     const { data: existingItem, error: existingError } = await supabase
       .from("menu_items")
@@ -199,16 +218,13 @@ export async function DELETE(_request: Request, { params }: Props) {
       console.error("SUPABASE MENU ARCHIVE ERROR:", error)
 
       return NextResponse.json(
-        {
-          success: false,
-          error: error?.message || "Failed to delete menu item",
-        },
+        { success: false, error: "Failed to delete menu item" },
         { status: 500 }
       )
     }
 
     if (existingItem.image_public_id) {
-      await cloudinary.uploader.destroy(existingItem.image_public_id)
+      await safeDeleteCloudinaryImage(existingItem.image_public_id)
     }
 
     return NextResponse.json({ success: true })
@@ -216,13 +232,7 @@ export async function DELETE(_request: Request, { params }: Props) {
     console.error("MENU ITEM DELETE ERROR:", error)
 
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to delete menu item",
-      },
+      { success: false, error: "Failed to delete menu item" },
       { status: 500 }
     )
   }

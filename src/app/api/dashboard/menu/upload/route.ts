@@ -2,15 +2,49 @@ import { NextResponse } from "next/server"
 import { v2 as cloudinary } from "cloudinary"
 import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
-  api_key: process.env.CLOUDINARY_API_KEY!,
-  api_secret: process.env.CLOUDINARY_API_SECRET!,
-})
+const ALLOWED_MENU_ROLES = ["owner", "manager"] as const
+
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+])
+
+const MAX_IMAGE_SIZE = 3 * 1024 * 1024
+
+function canManageMenu(role: string) {
+  return ALLOWED_MENU_ROLES.includes(role as (typeof ALLOWED_MENU_ROLES)[number])
+}
+
+function assertCloudinaryEnv() {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME
+  const apiKey = process.env.CLOUDINARY_API_KEY
+  const apiSecret = process.env.CLOUDINARY_API_SECRET
+
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error("Missing Cloudinary environment variables")
+  }
+
+  cloudinary.config({
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
+  })
+}
 
 export async function POST(request: Request) {
   try {
-    const { restaurant } = await requireRestaurantUser()
+    assertCloudinaryEnv()
+
+    const { restaurant, role } = await requireRestaurantUser()
+
+    if (!canManageMenu(role)) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      )
+    }
 
     const formData = await request.formData()
     const file = formData.get("file")
@@ -22,16 +56,19 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!file.type.startsWith("image/")) {
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
       return NextResponse.json(
-        { success: false, error: "Only image files are allowed" },
+        {
+          success: false,
+          error: "Only JPG, PNG, WEBP, or AVIF images are allowed",
+        },
         { status: 400 }
       )
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_IMAGE_SIZE) {
       return NextResponse.json(
-        { success: false, error: "Image must be less than 5MB" },
+        { success: false, error: "Image must be less than 3MB" },
         { status: 400 }
       )
     }
@@ -48,6 +85,9 @@ export async function POST(request: Request) {
           {
             folder: `restaurants/${restaurant.id}/menu`,
             resource_type: "image",
+            overwrite: false,
+            use_filename: false,
+            unique_filename: true,
             transformation: [
               {
                 width: 800,
@@ -60,7 +100,7 @@ export async function POST(request: Request) {
           },
           (error, result) => {
             if (error || !result) {
-              reject(error)
+              reject(error ?? new Error("Cloudinary upload failed"))
               return
             }
 

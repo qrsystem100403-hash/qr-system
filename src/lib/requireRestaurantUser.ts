@@ -1,6 +1,10 @@
+// src/lib/requireRestaurantUser.ts
+
 import { redirect } from "next/navigation"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { resolveRestaurant } from "@/lib/restaurantResolver"
+
+export type RestaurantRole = "owner" | "staff"
 
 export async function requireRestaurantUser() {
   const restaurant = await resolveRestaurant()
@@ -26,10 +30,26 @@ export async function requireRestaurantUser() {
     redirect("/login")
   }
 
+  const role = restaurantUser.role as RestaurantRole
+
+  if (role !== "owner" && role !== "staff") {
+    redirect("/login")
+  }
+
   return {
     restaurant,
     user,
-    role: restaurantUser.role as "owner",
+    role,
     supabase,
   }
-}   
+}
+
+export async function requireOwnerUser() {
+  const session = await requireRestaurantUser()
+
+  if (session.role !== "owner") {
+    redirect("/dashboard/orders")
+  }
+
+  return session
+}

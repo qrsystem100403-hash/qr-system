@@ -1,0 +1,160 @@
+Folder PATH listing for volume New Volume
+Volume serial number is 64D1-0A9C
+E:\QR SYSTEM\QR-ORDERING-ENGINE\SRC
++---app
+|   |   favicon.ico
+|   |   globals.css
+|   |   layout.tsx
+|   |   page.tsx
+|   |   
+|   +---api
+|   |   +---dashboard
+|   |   |   +---menu
+|   |   |   |   |   route.ts
+|   |   |   |   |   
+|   |   |   |   +---upload
+|   |   |   |   |       route.ts
+|   |   |   |   |       
+|   |   |   |   \---[itemId]
+|   |   |   |           route.ts
+|   |   |   |           
+|   |   |   +---orders
+|   |   |   |   +---payment
+|   |   |   |   |       route.ts
+|   |   |   |   |       
+|   |   |   |   \---status
+|   |   |   |           route.ts
+|   |   |   |           
+|   |   |   \---tables
+|   |   |       |   route.ts
+|   |   |       |   
+|   |   |       \---[tableId]
+|   |   |               route.ts
+|   |   |               
+|   |   +---dev
+|   |   +---menu
+|   |   |       route.ts
+|   |   |       
+|   |   \---qr
+|   |       \---orders
+|   |           |   route.ts
+|   |           |   
+|   |           \---status
+|   |                   route.ts
+|   |                   
+|   +---components
+|   |   \---site
+|   |           AboutStory.tsx
+|   |           ExperienceStats.tsx
+|   |           FeaturedDishes.tsx
+|   |           HeroSection.tsx
+|   |           MenuCard.tsx
+|   |           MenuPreview.tsx
+|   |           PremiumButton.tsx
+|   |           SectionHeading.tsx
+|   |           SiteFooter.tsx
+|   |           SiteHeader.tsx
+|   |           StateBlock.tsx
+|   |           StickyOrderButton.tsx
+|   |           TrustBar.tsx
+|   |           
+|   +---dashboard
+|   |   |   layout.tsx
+|   |   |   LogoutButton.tsx
+|   |   |   page.tsx
+|   |   |   
+|   |   +---menu
+|   |   |   |   page.tsx
+|   |   |   |   
+|   |   |   +---new
+|   |   |   |       page.tsx
+|   |   |   |       
+|   |   |   \---[itemId]
+|   |   |       \---edit
+|   |   |               page.tsx
+|   |   |               
+|   |   +---orders
+|   |   |   |   layout.tsx
+|   |   |   |   OrdersRealtime.tsx
+|   |   |   |   OrdersTabs.tsx
+|   |   |   |   OrderStatusAction.tsx
+|   |   |   |   page.tsx
+|   |   |   |   PaymentStatusAction.tsx
+|   |   |   |   
+|   |   |   +---cancelled
+|   |   |   |       page.tsx
+|   |   |   |       
+|   |   |   \---history
+|   |   |           page.tsx
+|   |   |           
+|   |   \---tables
+|   |       |   page.tsx
+|   |       |   
+|   |       \---print
+|   |               page.tsx
+|   |               PrintQRCodesClient.tsx
+|   |               
+|   +---login
+|   |       LoginForm.tsx
+|   |       page.tsx
+|   |       
+|   \---qr
+|       \---table
+|           \---[table]
+|               |   page.tsx
+|               |   
+|               +---cart
+|               |       page.tsx
+|               |       
+|               \---success
+|                       page.tsx
+|                       
++---lib
+|   |   requireRestaurantUser.ts
+|   |   resolvePublicRestaurant.ts
+|   |   restaurantResolver.ts
+|   |   
+|   +---supabase
+|   |       admin.ts
+|   |       browser.ts
+|   |       client.ts
+|   |       getPublicMenuPreview.ts
+|   |       server.ts
+|   |       
+|   \---ui
++---modules
+|   +---attendance
+|   +---auth
+|   +---billing
+|   +---dashboard
+|   |   +---attendance
+|   |   +---auth
+|   |   +---inventory
+|   |   \---menu
+|   |           MenuItemForm.tsx
+|   |           
+|   +---online-ordering
+|   +---qr-ordering
+|   |   +---api
+|   |   +---components
+|   |   |       QRCartClient.tsx
+|   |   |       QRMenuClient.tsx
+|   |   |       QRSuccessClient.tsx
+|   |   |       
+|   |   +---repositories
+|   |   |       menuRepository.ts
+|   |   |       restaurantRepository.ts
+|   |   |       
+|   |   +---services
+|   |   |       menuService.ts
+|   |   |       
+|   |   +---types
+|   |   +---utils
+|   |   |       restaurantResolver.ts
+|   |   |       
+|   |   \---validators
+|   \---staff
++---store
+|       qrCartStore.ts
+|       
+\---utils

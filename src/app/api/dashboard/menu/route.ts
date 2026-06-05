@@ -15,19 +15,28 @@ const ALLOWED_BADGES = [
   "Must Try",
 ] as const
 
+const ALLOWED_MENU_ROLES = ["owner", "manager"] as const
+
 const schema = z.object({
-  name: z.string().min(1).max(100),
-  price: z.number().positive(),
+  name: z.string().trim().min(1).max(100),
+  price: z.number().positive().max(99999),
   categoryId: z.string().uuid(),
-  image: z.string().nullable().optional(),
-  imagePublicId: z.string().nullable().optional(),
+  image: z.string().url().nullable().optional(),
+  imagePublicId: z.string().trim().max(255).nullable().optional(),
   isAvailable: z.boolean(),
   tag: z.array(z.enum(ALLOWED_BADGES)).max(3).optional(),
 })
 
 export async function POST(request: Request) {
   try {
-    const { restaurant, supabase } = await requireRestaurantUser()
+    const { restaurant, supabase, role } = await requireRestaurantUser()
+
+    if (!ALLOWED_MENU_ROLES.includes(role as (typeof ALLOWED_MENU_ROLES)[number])) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      )
+    }
 
     const body = await request.json()
     const parsed = schema.safeParse(body)
@@ -71,7 +80,7 @@ export async function POST(request: Request) {
       .from("menu_items")
       .insert({
         restaurant_id: restaurant.id,
-        name: name.trim(),
+        name,
         price,
         category_id: categoryId,
         image: image ?? null,
@@ -87,10 +96,7 @@ export async function POST(request: Request) {
       console.error("SUPABASE MENU INSERT ERROR:", error)
 
       return NextResponse.json(
-        {
-          success: false,
-          error: error?.message || "Failed to create menu item",
-        },
+        { success: false, error: "Failed to create menu item" },
         { status: 500 }
       )
     }
@@ -103,13 +109,7 @@ export async function POST(request: Request) {
     console.error("CREATE MENU ITEM ERROR:", error)
 
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to create menu item",
-      },
+      { success: false, error: "Failed to create menu item" },
       { status: 500 }
     )
   }

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Clock, LayoutDashboard, MapPin, ShoppingBag } from "lucide-react";
+import { Clock, LayoutDashboard, MapPin, } from "lucide-react";
+import Image from "next/image";
 
 export function SiteFooter() {
   return (
@@ -10,20 +11,27 @@ export function SiteFooter() {
       <div className="premium-container">
         <div className="grid gap-8 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
           <div>
-            <Link href="/" className="flex items-center gap-3">
-              <div className="grid size-11 place-items-center rounded-2xl border border-[var(--color-border-gold)] bg-[var(--color-gold)]/10 text-[var(--color-gold)]">
-                <ShoppingBag className="size-5" strokeWidth={1.8} />
-              </div>
+            <Link href="/" className="flex min-w-0 items-center gap-2.5 md:gap-3">
+          <div className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-full border border-[var(--color-border-gold)] bg-[var(--color-gold)] shadow-[0_0_24px_rgba(211,181,74,0.12)] md:size-10">
+            <Image
+              src="/images/logo.png"
+              alt="Friends Cafe logo"
+              width={38}
+              height={38}
+              className="h-5 w-5 object-contain md:h-7 md:w-7"
+              priority
+            />
+          </div>
 
-              <div>
-                <p className="font-heading text-2xl font-semibold leading-none">
-                  Friends Cafe
-                </p>
-                <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.34em] text-[var(--color-gold)]">
-                  Pure Vegetarian
-                </p>
-              </div>
-            </Link>
+          <div className="min-w-0">
+            <p className="truncate font-heading text-sm font-normal leading-none tracking-[-0.02em] text-[var(--color-text)] sm:text-md md:text-xl">
+              Friends Cafe Chopati
+            </p>
+            <p className="mt-1 truncate text-[5px] font-extrabold uppercase tracking-[0.28em] text-[var(--color-gold)] sm:text-[6px] md:text-[7px]">
+              Pure Vegetarian
+            </p>
+          </div>
+        </Link>
 
             <p className="mt-5 max-w-md text-sm leading-7 text-[var(--color-text-muted)]">
               A premium vegetarian restaurant experience with fast QR ordering,

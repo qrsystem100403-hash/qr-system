@@ -2,14 +2,29 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
 
+const ALLOWED_PAYMENT_ROLES = ["owner", "manager", "cashier"] as const
+
 const schema = z.object({
   orderId: z.string().uuid(),
   paymentStatus: z.literal("paid"),
 })
 
+function canUpdatePayment(role: string) {
+  return ALLOWED_PAYMENT_ROLES.includes(
+    role as (typeof ALLOWED_PAYMENT_ROLES)[number]
+  )
+}
+
 export async function PATCH(request: Request) {
   try {
-    const { restaurant, supabase } = await requireRestaurantUser()
+    const { restaurant, supabase, role } = await requireRestaurantUser()
+
+    if (!canUpdatePayment(role)) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      )
+    }
 
     const body = await request.json()
     const parsed = schema.safeParse(body)
@@ -58,9 +73,11 @@ export async function PATCH(request: Request) {
       .single()
 
     if (updateError || !updatedOrder) {
+      console.error("PAYMENT STATUS UPDATE DB ERROR:", updateError)
+
       return NextResponse.json(
-        { success: false, error: "Failed to update payment status" },
-        { status: 500 }
+        { success: false, error: "Payment was already updated. Refresh and try again." },
+        { status: 409 }
       )
     }
 

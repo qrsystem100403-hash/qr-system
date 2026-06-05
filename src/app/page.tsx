@@ -1,30 +1,40 @@
-import { HeroSection } from "./components/site/HeroSection";
-import { MenuPreview } from "./components/site/MenuPreview";
-import { SiteFooter } from "./components/site/SiteFooter";
-import { SiteHeader } from "./components/site/SiteHeader";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { TrustBar } from "./components/site/TrustBar";
-import { StickyOrderButton } from "./components/site/StickyOrderButton";
+import { HeroSection } from "./components/site/HeroSection"
+import { FeaturedDishes } from "./components/site/FeaturedDishes"
+import { MenuPreview } from "./components/site/MenuPreview"
+import { SiteFooter } from "./components/site/SiteFooter"
+import { SiteHeader } from "./components/site/SiteHeader"
+import { TrustBar } from "./components/site/TrustBar"
+import { StickyOrderButton } from "./components/site/StickyOrderButton"
+import { ExperienceStats } from "./components/site/ExperienceStats"
+import { getPublicMenuPreview } from "@/lib/supabase/getPublicMenuPreview"
+import { AboutStory } from "./components/site/AboutStory"
 
 export default async function Home() {
-  const supabase = await createSupabaseServerClient();
+  const { items, categories, error } = await getPublicMenuPreview()
 
-  const { data, error } = await supabase
-    .from("menu_items")
-    .select("id, name, price, image, category, description, is_available")
-    .order("created_at", { ascending: false });
+  const featuredItems = items.slice(0, 4)
 
   return (
     <main className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
       <SiteHeader />
       <HeroSection />
-      <TrustBar/>
-      <MenuPreview
-        items={data ?? []}
-        error={error ? "Check Supabase permissions, table columns, or database connection." : null}
+      <TrustBar />
+
+      <FeaturedDishes
+        items={featuredItems}
+        error={error}
       />
+        <ExperienceStats />
+        <AboutStory/>
+
+      <MenuPreview
+        items={items}
+        categories={categories}
+        error={error}
+      />
+
       <SiteFooter />
-      <StickyOrderButton/>
+      <StickyOrderButton />
     </main>
-  );
+  )
 }

@@ -16,7 +16,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Friends Cafe",
+  title: "Friends Cafe Chopati",
   description: "Premium QR ordering system for restaurants.",
 };
 

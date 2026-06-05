@@ -1,20 +1,42 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+
+const ALLOWED_TABLE_ROLES = ["owner", "manager"] as const
+
+const createTableSchema = z.object({
+  name: z.string().trim().min(1).max(30),
+})
+
+function canManageTables(role: string) {
+  return ALLOWED_TABLE_ROLES.includes(
+    role as (typeof ALLOWED_TABLE_ROLES)[number]
+  )
+}
+
+function normalizeTableName(value: string) {
+  return value.trim().replace(/\s+/g, "-")
+}
 
 export async function GET() {
   try {
-    const { restaurant } = await requireRestaurantUser()
+    const { restaurant, supabase } = await requireRestaurantUser()
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from("restaurant_tables")
-      .select("id, name, is_active, created_at")
+      .select(
+  "id, name, is_active, status, last_activity_at, created_at"
+)
       .eq("restaurant_id", restaurant.id)
       .order("created_at", { ascending: true })
 
     if (error) {
       console.error("SUPABASE TABLES GET ERROR:", error)
-      throw new Error(error.message)
+
+      return NextResponse.json(
+        { success: false, error: "Failed to load tables" },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ success: true, tables: data ?? [] })
@@ -22,10 +44,7 @@ export async function GET() {
     console.error("TABLES GET ERROR:", error)
 
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to load tables",
-      },
+      { success: false, error: "Failed to load tables" },
       { status: 500 }
     )
   }
@@ -33,26 +52,37 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { restaurant } = await requireRestaurantUser()
+    const { restaurant, supabase, role } = await requireRestaurantUser()
+
+    if (!canManageTables(role)) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      )
+    }
 
     const body = await request.json()
-    const name = String(body.name ?? "").trim()
+    const parsed = createTableSchema.safeParse(body)
 
-    if (!name) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: "Table name is required" },
+        { success: false, error: "Invalid table data" },
         { status: 400 }
       )
     }
 
-    const { data, error } = await supabaseAdmin
+    const name = normalizeTableName(parsed.data.name)
+
+    const { data, error } = await supabase
       .from("restaurant_tables")
       .insert({
         restaurant_id: restaurant.id,
         name,
         is_active: true,
       })
-      .select("id, name, is_active, created_at")
+      .select(
+  "id, name, is_active, status, last_activity_at, created_at"
+)
       .single()
 
     if (error) {
@@ -66,7 +96,7 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: "Failed to create table" },
         { status: 500 }
       )
     }
@@ -76,10 +106,7 @@ export async function POST(request: Request) {
     console.error("TABLES POST ERROR:", error)
 
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to create table",
-      },
+      { success: false, error: "Failed to create table" },
       { status: 500 }
     )
   }

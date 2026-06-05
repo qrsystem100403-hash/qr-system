@@ -1,0 +1,19 @@
+Folder PATH listing for volume New Volume
+Volume serial number is 64D1-0A9C
+E:\QR SYSTEM\QR-ORDERING-ENGINE\PUBLIC
+|   file.svg
+|   globe.svg
+|   next.svg
+|   placeholder-food.png
+|   vercel.svg
+|   window.svg
+|   
++---images
+|       logo.png
+|       outdoor.jpg
+|       restaurant-hero.png
+|       sitting.webp
+|       
+\---sounds
+        new-order.mp3
+        

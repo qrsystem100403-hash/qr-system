@@ -1,236 +1,170 @@
-import { AlertTriangle, BellRing, Clock, Hash, ReceiptText } from "lucide-react";
-import { requireRestaurantUser } from "@/lib/requireRestaurantUser";
-import OrderStatusActions from "./OrderStatusAction";
-import PaymentStatusActions from "./PaymentStatusAction";
-import OrdersRealtime from "./OrdersRealtime";
+import { Banknote, Clock3, PackageCheck, Utensils } from "lucide-react"
+import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
+import OrderStats from "./_components/OrderStats"
+import OrderStatusTabs from "./_components/OrderStatusTabs"
+import OrderQueue from "./_components/OrderQueue"
+import OrderDetailsPanel from "./_components/OrderDetailsPanel"
+import OrdersSearch from "./_components/OrdersSearch"
+import type { Order, OrderStatus, StatusTabValue } from "./_components/order-types"
 
-type OrderStatus = "pending" | "preparing" | "ready" | "served" | "cancelled";
-
-type OrderItem = {
-  id: string;
-  qty: number;
-  item_price: number;
-  item_name: string | null;
-  menu_item_id: string;
-};
-
-type Order = {
-  id: string;
-  table_name: string;
-  total: number;
-  payment_status: string;
-  order_status: OrderStatus;
-  customer_note: string | null;
-  created_at: string;
-  order_items: OrderItem[];
-};
-
-const formatOrderTime = (date: string) =>
-  new Intl.DateTimeFormat("en-IN", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(new Date(date));
-
-function getStatusStyle(status: OrderStatus) {
-  if (status === "pending") {
-    return "border-yellow-500/25 bg-yellow-500/10 text-yellow-200";
-  }
-
-  if (status === "preparing") {
-    return "border-blue-500/25 bg-blue-500/10 text-blue-200";
-  }
-
-  if (status === "ready") {
-    return "border-green-500/25 bg-green-500/10 text-green-200";
-  }
-
-  if (status === "cancelled") {
-    return "border-red-500/25 bg-red-500/10 text-red-200";
-  }
-
-  return "border-[var(--color-border)] bg-black/25 text-[var(--color-text-muted)]";
+type Props = {
+  searchParams?: Promise<{
+    status?: StatusTabValue
+    selected?: string
+    q?: string
+  }>
 }
 
-export default async function OrdersPage() {
-  const { restaurant, supabase } = await requireRestaurantUser();
-
-  const { data, error } = await supabase
-    .from("orders")
-    .select(`
-      id,
-      table_name,
-      total,
-      payment_status,
-      order_status,
-      customer_note,
-      created_at,
-      order_items (
-        id,
-        qty,
-        item_price,
-        item_name,
-        menu_item_id
-      )
-    `)
-    .eq("restaurant_id", restaurant.id)
-    .not("order_status", "in", "(served,cancelled)")
-    .order("created_at", { ascending: false })
-    .order("id", { referencedTable: "order_items", ascending: true });
-
-  const orders = data as Order[] | null;
-
-  if (error) {
-    return (
-      <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-red-100">
-        <div className="flex gap-3">
-          <AlertTriangle className="mt-0.5 size-5 shrink-0" />
-          <div>
-            <p className="font-semibold">Failed to load orders</p>
-            <p className="mt-1 text-sm text-red-200">{error.message}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+function isValidStatus(value: unknown): value is StatusTabValue {
   return (
-    <>
-      <OrdersRealtime restaurantId={restaurant.id} />
+    value === "pending" ||
+    value === "preparing" ||
+    value === "ready" ||
+    value === "served" ||
+    value === "cancelled" ||
+    value === "all"
+  )
+}
 
-      {!orders?.length ? (
-        <div className="rounded-[24px] border border-[var(--color-border)] bg-[var(--color-surface-soft)]/70 p-8 text-center">
-          <div className="mx-auto grid size-12 place-items-center rounded-full bg-[var(--color-gold)]/10 text-[var(--color-gold)]">
-            <BellRing className="size-5" />
-          </div>
+export default async function OrdersPage({ searchParams }: Props) {
+  const { supabase, restaurant } = await requireRestaurantUser()
+  const params = await searchParams
 
-          <h2 className="mt-4 font-heading text-3xl font-normal">
-            No active orders
-          </h2>
+  const activeStatus: StatusTabValue = isValidStatus(params?.status)
+    ? params.status
+    : "pending"
 
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--color-text-muted)]">
-            New QR orders will appear here automatically.
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {orders.map((order) => (
-            <article
-              key={order.id}
-              className="overflow-hidden rounded-[22px] border border-[var(--color-border)] bg-[var(--color-surface-soft)]/70 shadow-[0_16px_42px_rgba(0,0,0,0.18)] transition hover:border-[var(--color-border-gold)]/60"
-            >
-              <div className="border-b border-[var(--color-border)] bg-black/25 p-4">
-  <div className="flex items-start justify-between gap-3">
-    <div className="min-w-0 flex-1">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-gold)]">
-        Table
-      </p>
+  const selectedId = params?.selected
+  const searchQuery = params?.q?.trim() ?? ""
 
-      <h2 className="mt-1 truncate font-heading text-4xl font-normal leading-none text-[var(--color-text)]">
-        {order.table_name}
-      </h2>
+  const baseSelect = `
+  id,
+  order_type,
+  table_name,
+  customer_name,
+  customer_phone,
+  address,
+  tracking_token,
+  total,
+  payment_status,
+  order_status,
+  customer_note,
+  cancel_reason,
+  created_at,
+  order_items (
+    id,
+    qty,
+    item_price,
+    item_name,
+    variant_name,
+    order_item_addons (
+      id,
+      addon_name,
+      addon_price
+    )
+  )
+`
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span
-          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold capitalize ${getStatusStyle(
-            order.order_status
-          )}`}
-        >
-          {order.order_status}
-        </span>
+const { data: allData, error: allError } = await supabase
+  .from("orders")
+  .select(baseSelect)
+  .eq("restaurant_id", restaurant.id)
+  .order("created_at", { ascending: false })
 
-        <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-text-soft)]">
-          <Clock className="size-3.5" />
-          {formatOrderTime(order.created_at)}
-        </span>
+if (allError) {
+  return (
+    <div className="rounded-2xl border border-[#F3C6C2] bg-[#FDECEC] p-4 text-sm font-semibold text-[#B42318]">
+      Failed to load orders: {allError.message}
+    </div>
+  )
+}
 
-        <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-text-soft)]">
-          <Hash className="size-3.5" />
-          {order.id.slice(0, 8)}
-        </span>
+const allOrders = (allData ?? []) as Order[]
+
+let orders = allOrders
+
+if (activeStatus !== "all") {
+  orders = orders.filter((order) => order.order_status === activeStatus)
+}
+
+if (searchQuery) {
+  const q = searchQuery.toLowerCase()
+
+  orders = orders.filter((order) => {
+    return (
+      order.tracking_token?.toLowerCase().includes(q) ||
+      order.table_name?.toLowerCase().includes(q) ||
+      order.customer_name?.toLowerCase().includes(q) ||
+      order.customer_phone?.toLowerCase().includes(q)
+    )
+  })
+}
+
+const selectedOrder =
+  orders.find((order) => order.id === selectedId) ?? orders[0] ?? null
+
+const todayStart = new Date()
+todayStart.setHours(0, 0, 0, 0)
+
+const todayOrders = allOrders.filter(
+  (order) => new Date(order.created_at) >= todayStart
+)
+
+const counts = {
+  pending: allOrders.filter((order) => order.order_status === "pending").length,
+  preparing: allOrders.filter((order) => order.order_status === "preparing").length,
+  ready: allOrders.filter((order) => order.order_status === "ready").length,
+  served: allOrders.filter((order) => order.order_status === "served").length,
+  cancelled: allOrders.filter((order) => order.order_status === "cancelled").length,
+  all: allOrders.length,
+}
+
+const stats = [
+  {
+    label: "Today’s Orders",
+    value: todayOrders.length,
+    icon: Utensils,
+  },
+  {
+    label: "Pending Orders",
+    value: counts.pending,
+    icon: Clock3,
+  },
+  {
+    label: "Revenue",
+    value: `₹${todayOrders
+      .filter((order) => order.order_status === "served")
+      .reduce((sum, order) => sum + Number(order.total), 0)}`,
+    icon: Banknote,
+  },
+  {
+    label: "Active Orders",
+    value: counts.pending + counts.preparing + counts.ready,
+    icon: PackageCheck,
+  },
+]
+  return (
+    <section className="grid h-[calc(100vh-118px)] min-h-[640px] grid-cols-1 gap-5 overflow-hidden xl:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="min-w-0 overflow-hidden">
+        <OrdersSearch searchQuery={searchQuery} />
+
+        <OrderStats stats={stats} />
+
+        <OrderStatusTabs
+  activeStatus={activeStatus}
+  searchQuery={searchQuery}
+  counts={counts}
+/>
+
+        <OrderQueue
+          orders={orders}
+          selectedOrderId={selectedOrder?.id}
+          activeStatus={activeStatus}
+          searchQuery={searchQuery}
+        />
       </div>
-    </div>
 
-    <div className="shrink-0 text-right">
-      <p className="font-heading text-2xl font-normal leading-none">
-        ₹{order.total}
-      </p>
-      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-soft)]">
-        Total
-      </p>
-    </div>
-  </div>
-</div>
-
-              <div className="p-3">
-                <div className="space-y-2">
-                  {order.order_items?.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-black/20 px-3 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <p className="line-clamp-2 text-sm font-medium text-[var(--color-text)]">
-                          {item.qty} × {item.item_name ?? "Unknown item"}
-                        </p>
-
-                        <p className="mt-1 text-xs text-[var(--color-text-soft)]">
-                          ₹{item.item_price} each
-                        </p>
-                      </div>
-
-                      <p className="shrink-0 text-sm font-semibold text-[var(--color-text)]">
-                        ₹{item.item_price * item.qty}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {order.customer_note && (
-                  <div className="mt-3 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-yellow-300">
-                      Customer Note
-                    </p>
-
-                    <p className="mt-1 text-sm leading-6 text-yellow-100">
-                      {order.customer_note}
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-3">
-                  <OrderStatusActions
-                    orderId={order.id}
-                    currentStatus={order.order_status}
-                  />
-                </div>
-
-                <div className="mt-3 border-t border-[var(--color-border)] pt-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-soft)]">
-                        Payment
-                      </p>
-
-                      <p className="mt-1 truncate text-sm capitalize text-[var(--color-text-muted)]">
-                        {order.payment_status}
-                      </p>
-                    </div>
-
-                    <PaymentStatusActions
-                      orderId={order.id}
-                      currentPaymentStatus={order.payment_status}
-                    />
-                  </div>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </>
-  );
+      <OrderDetailsPanel order={selectedOrder} />
+    </section>
+  )
 }

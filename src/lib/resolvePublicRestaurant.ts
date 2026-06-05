@@ -23,7 +23,7 @@ export async function resolvePublicRestaurant() {
 
   const { data: restaurant, error } = await supabaseAdmin
     .from("restaurants")
-    .select("id, name, domain")
+    .select("id, name, domain, phone")
     .eq("domain", domain)
     .single()
 

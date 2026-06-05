@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --color-bg: #080704;
   --color-bg-deep: #050403;
@@ -29,6 +31,17 @@
 
   --shadow-soft: 0 24px 80px rgba(0, 0, 0, 0.35);
   --shadow-gold: 0 18px 50px rgba(214, 182, 76, 0.12);
+
+  --color-gold-glow: rgba(214, 182, 76, 0.18);
+  --color-gold-faint: rgba(214, 182, 76, 0.08);
+
+  --color-card-hover: rgba(255, 255, 255, 0.045);
+  --color-card-active: rgba(214, 182, 76, 0.12);
+
+  --shadow-card: 0 18px 60px rgba(0, 0, 0, 0.28);
+  --shadow-card-hover: 0 24px 80px rgba(0, 0, 0, 0.42);
+
+  --blur-glass: 18px;
 }
 
 * {
