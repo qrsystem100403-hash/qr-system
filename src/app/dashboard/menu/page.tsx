@@ -10,6 +10,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { requireRestaurantUser } from "@/lib/requireRestaurantUser";
+import CategoryDropdown from "./CategoryDropdown";
 
 type Category = {
   id: string;
@@ -212,222 +213,342 @@ export default async function MenuPage({ searchParams }: Props) {
   };
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[var(--color-bg)] px-4 py-5 text-[var(--color-text)] sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <section className="rounded-[26px] border border-[var(--color-border)] bg-[var(--color-surface)]/75 p-5 shadow-[var(--shadow-soft)] backdrop-blur-xl sm:p-7">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-[var(--color-gold)] sm:tracking-[0.32em]">
-                Menu Management
-              </p>
+  <main className="space-y-6 px-4 py-5">
+    {/* Header */}
+    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h1 className="text-3xl font-bold text-[#111827] dark:text-[#E7E9EC]">
+          Menu
+        </h1>
 
-              <h1 className="mt-2 font-heading text-4xl font-normal leading-none sm:text-5xl">
-                Menu
-              </h1>
+        <p className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]">
+          Manage menu items and availability
+        </p>
+      </div>
 
-              <p className="mt-3 text-sm text-[var(--color-text-muted)]">
-                Manage items for{" "}
-                <span className="text-[var(--color-text)]">{restaurant.name}</span>
-              </p>
-            </div>
+      <Link
+        href="/dashboard/menu/new"
+        className="
+          hidden
+          lg:inline-flex
+          h-11
+          items-center
+          gap-2
+          rounded-2xl
+          bg-[#2F7D57]
+          px-4
+          text-sm
+          font-semibold
+          text-white
+          transition
+          hover:bg-[#27694A]
+        "
+      >
+        <Plus className="size-4" />
+        Add Item
+      </Link>
+    </div>
 
-            <Link
-              href="/dashboard/menu/new"
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--color-gold)] px-5 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--color-bg)] shadow-[0_18px_45px_rgba(211,181,74,0.18)] transition hover:brightness-110 sm:w-auto"
-            >
-              <Plus className="size-4" />
-              Add Item
-            </Link>
-          </div>
+    {/* Stats */}
+    <div className="grid grid-cols-3 gap-3">
+      <div className="rounded-2xl border border-[#E4DED3] bg-white p-4 shadow-sm dark:border-[#2A2F35] dark:bg-[#171A1F]">
+        <p className="text-xs text-[#667085] dark:text-[#AAB2BD]">
+          Total
+        </p>
 
-          <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
-            <MiniStat label="Total" value={sortedItems.length} />
-            <MiniStat label="Available" value={availableCount} />
-            <MiniStat label="Hidden" value={unavailableCount} />
-          </div>
-        </section>
+        <p className="mt-1 text-2xl font-bold text-[#111827] dark:text-[#E7E9EC]">
+          {sortedItems.length}
+        </p>
+      </div>
 
-        <form
-          action="/dashboard/menu"
-          className="sticky top-0 z-20 mt-5 rounded-[22px] border border-[var(--color-border)] bg-[var(--color-bg)]/95 p-3 backdrop-blur-xl"
+      <div className="rounded-2xl border border-[#E4DED3] bg-white p-4 shadow-sm dark:border-[#2A2F35] dark:bg-[#171A1F]">
+        <p className="text-xs text-[#667085] dark:text-[#AAB2BD]">
+          Available
+        </p>
+
+        <p className="mt-1 text-2xl font-bold text-[#2F7D57] dark:text-[#7BC99A]">
+          {availableCount}
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-[#E4DED3] bg-white p-4 shadow-sm dark:border-[#2A2F35] dark:bg-[#171A1F]">
+        <p className="text-xs text-[#667085] dark:text-[#AAB2BD]">
+          Hidden
+        </p>
+
+        <p className="mt-1 text-2xl font-bold text-[#B42318] dark:text-[#FCA5A5]">
+          {unavailableCount}
+        </p>
+      </div>
+    </div>
+
+    {/* Filters */}
+    <form action="/dashboard/menu">
+      <div className="flex flex-col gap-3 lg:flex-row">
+        <div className="relative flex-1">
+          <Search
+            className="
+              absolute
+              left-4
+              top-1/2
+              -translate-y-1/2
+              size-4
+              text-[#98A2B3]
+            "
+          />
+
+          <input
+            name="q"
+            defaultValue={searchQuery}
+            placeholder="Search menu items..."
+            className="
+              h-12
+              w-full
+              rounded-2xl
+              border
+              border-[#E4DED3]
+              bg-white
+              pl-11
+              pr-4
+              text-sm
+              text-[#111827]
+              outline-none
+              transition
+              focus:border-[#2F7D57]
+              dark:border-[#2A2F35]
+              dark:bg-[#171A1F]
+              dark:text-[#E7E9EC]
+            "
+          />
+        </div>
+
+        <CategoryDropdown
+          categories={categories}
+          activeCategory={activeCategory}
+        />
+
+        <button
+          type="submit"
+          className="
+            h-12
+            rounded-2xl
+            bg-[#2F7D57]
+            px-5
+            text-sm
+            font-semibold
+            text-white
+            transition
+            hover:bg-[#27694A]
+          "
         >
-          {activeCategory !== "all" && (
-            <input type="hidden" name="category" value={activeCategory} />
-          )}
+          Apply
+        </button>
+      </div>
+    </form>
 
-          <div className="space-y-3 sm:flex sm:space-y-0 sm:gap-3">
-            <div className="flex min-h-12 flex-1 items-center gap-3 rounded-2xl border border-[var(--color-border)] bg-black/35 px-4 focus-within:border-[var(--color-border-gold)]">
-              <Search className="size-4 shrink-0 text-[var(--color-gold)]" />
-              <input
-                name="q"
-                defaultValue={searchQuery}
-                placeholder="Search item..."
-                className="h-12 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--color-text-soft)]"
-              />
-            </div>
+    {/* Empty States */}
+    {!sortedItems.length ? (
+      <EmptyState
+        title="No menu items yet"
+        text="Start by adding your first menu item."
+        href="/dashboard/menu/new"
+        action="Add Item"
+      />
+    ) : !filteredItems.length ? (
+      <EmptyState
+        title="No matching items"
+        text="Try changing the search or category filter."
+        href="/dashboard/menu"
+        action="Clear Filters"
+      />
+    ) : (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {filteredItems.map((item) => {
+          const category = getCategory(item);
 
-            <div className="flex gap-2 sm:w-auto">
-              <button
-                type="submit"
-                className="h-11 min-w-0 flex-1 rounded-2xl bg-[var(--color-gold)] px-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--color-bg)] sm:h-12 sm:flex-none sm:px-5"
-              >
-                Search
-              </button>
+          return (
+            <Link
+              key={item.id}
+              href={`/dashboard/menu/${item.id}/edit`}
+              className="
+                group
+                rounded-3xl
+                border
+                border-[#E4DED3]
+                bg-white
+                p-4
+                shadow-sm
+                transition-all
+                hover:-translate-y-1
+                hover:shadow-lg
+                dark:border-[#2A2F35]
+                dark:bg-[#171A1F]
+              "
+            >
+              <div className="flex gap-3">
+                <img
+                  src={
+                    item.image ??
+                    "/images/restaurant-hero.png"
+                  }
+                  alt={item.name}
+                  className="
+                    h-18
+                    w-18
+                    shrink-0
+                    rounded-2xl
+                    object-cover
+                  "
+                />
 
-              {(searchQuery || activeCategory !== "all") && (
-                <Link
-                  href="/dashboard/menu"
-                  className="inline-flex h-11 min-w-0 flex-1 items-center justify-center rounded-2xl border border-[var(--color-border)] px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-muted)] sm:h-12 sm:flex-none sm:px-5"
-                >
-                  Clear
-                </Link>
-              )}
-            </div>
-          </div>
-        </form>
-
-        {!!sortedItems.length && (
-          <div className="mt-5">
-            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--color-text-soft)]">
-              <SlidersHorizontal className="size-3.5" />
-              Categories
-            </div>
-
-            <div className="flex max-w-full gap-2 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <Link
-                href={buildCategoryHref("all")}
-                className={`shrink-0 rounded-full px-4 py-2.5 text-xs font-bold ${
-                  activeCategory === "all"
-                    ? "bg-[var(--color-gold)] text-[var(--color-bg)]"
-                    : "border border-[var(--color-border)] bg-black/20 text-[var(--color-text-muted)]"
-                }`}
-              >
-                All
-              </Link>
-
-              {categories.map((category) => (
-                <Link
-                  key={category.id}
-                  href={buildCategoryHref(category.id)}
-                  className={`max-w-[230px] shrink-0 truncate rounded-full px-4 py-2.5 text-xs font-bold ${
-                    activeCategory === category.id
-                      ? "bg-[var(--color-gold)] text-[var(--color-bg)]"
-                      : "border border-[var(--color-border)] bg-black/20 text-[var(--color-text-muted)]"
-                  }`}
-                >
-                  {category.parent?.name
-                    ? `${category.parent.name} · ${category.name}`
-                    : category.name}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {!sortedItems.length ? (
-          <EmptyState
-            title="No menu items yet"
-            text="Start by adding your first food item."
-            href="/dashboard/menu/new"
-            action="Add first item"
-          />
-        ) : !filteredItems.length ? (
-          <EmptyState
-            title="No matching items"
-            text="Try changing the search keyword or category filter."
-            href="/dashboard/menu"
-            action="Clear filters"
-          />
-        ) : (
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredItems.map((item) => {
-              const category = getCategory(item);
-
-              return (
-                <Link
-                  key={item.id}
-                  href={`/dashboard/menu/${item.id}/edit`}
-                  className="group overflow-hidden rounded-[26px] border border-[var(--color-border)] bg-[var(--color-surface-soft)]/70 shadow-[0_18px_50px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-[var(--color-border-gold)]"
-                >
-                  <div className="relative h-36 overflow-hidden bg-black/40 sm:h-40">
-                    <img
-                      src={item.image ?? "/images/restaurant-hero.png"}
-                      alt={item.name}
-                      className={`h-full w-full object-cover transition duration-500 group-hover:scale-105 ${
-                        !item.is_available ? "grayscale opacity-45" : ""
-                      }`}
-                    />
-
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="line-clamp-2 font-semibold text-[#111827] dark:text-[#E7E9EC]">
+                      {item.name}
+                    </h3>
 
                     <span
-                      className={`absolute left-3 top-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold backdrop-blur-md ${
+                      className={
                         item.is_available
-                          ? "bg-green-500/15 text-green-200"
-                          : "bg-red-500/15 text-red-200"
-                      }`}
+                          ? "rounded-full bg-green-100 px-2 py-1 text-[11px] font-medium text-green-700 dark:bg-green-500/15 dark:text-green-300"
+                          : "rounded-full bg-red-100 px-2 py-1 text-[11px] font-medium text-red-700 dark:bg-red-500/15 dark:text-red-300"
+                      }
                     >
-                      {item.is_available ? (
-                        <CheckCircle2 className="size-3" />
-                      ) : (
-                        <XCircle className="size-3" />
-                      )}
-                      {item.is_available ? "Available" : "Hidden"}
+                      {item.is_available
+                        ? "Available"
+                        : "Hidden"}
                     </span>
-
-                    {item.tag && (
-                      <span className="absolute right-3 top-3 max-w-[130px] truncate rounded-full border border-yellow-500/25 bg-yellow-500/15 px-2.5 py-1 text-[10px] font-bold text-yellow-200 backdrop-blur-md">
-                        {item.tag}
-                      </span>
-                    )}
-
-                    <div className="absolute bottom-3 left-3 right-3">
-                      <p className="truncate text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-gold)]">
-                        {category?.parent?.name
-                          ? `${category.parent.name} · ${category.name}`
-                          : category?.name ?? "Uncategorized"}
-                      </p>
-
-                      <h2 className="mt-1 line-clamp-2 break-words font-heading text-2xl font-normal leading-tight text-white">
-                        {item.name}
-                      </h2>
-                    </div>
                   </div>
 
-                  <div className="p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-black/25 px-3 py-1.5 text-sm font-semibold text-[var(--color-text)]">
-                        <BadgeIndianRupee className="size-3.5 text-[var(--color-gold)]" />
-                        {item.price}
-                      </span>
-
-                      <span className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--color-text-soft)] transition group-hover:text-[var(--color-gold)]">
-                        Edit
-                        <ArrowRight className="size-3.5 transition group-hover:translate-x-1" />
-                      </span>
-                    </div>
+                  <div className="mt-2">
+                    <span
+                      className="
+                        inline-flex
+                        rounded-full
+                        bg-[#F7F8FA]
+                        px-2.5
+                        py-1
+                        text-xs
+                        font-medium
+                        text-[#667085]
+                        dark:bg-[#20242A]
+                        dark:text-[#AAB2BD]
+                      "
+                    >
+                      {category?.name ??
+                        "Uncategorized"}
+                    </span>
                   </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
+
+                  <div className="mt-3 flex items-center justify-between">
+                    <p className="font-semibold text-[#111827] dark:text-[#E7E9EC]">
+                      ₹{item.price}
+                    </p>
+
+                    <span
+                      className="
+                        rounded-xl
+                        border
+                        border-[#E4DED3]
+                        px-3
+                        py-1.5
+                        text-xs
+                        font-semibold
+                        text-[#475467]
+                        transition
+                        group-hover:border-[#2F7D57]
+                        group-hover:text-[#2F7D57]
+                        dark:border-[#2A2F35]
+                        dark:text-[#AAB2BD]
+                        dark:group-hover:border-[#7BC99A]
+                        dark:group-hover:text-[#7BC99A]
+                      "
+                    >
+                      Edit
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
       </div>
-    </main>
-  );
+    )}
+
+    {/* Mobile FAB */}
+    <Link
+      href="/dashboard/menu/new"
+      className="
+        fixed
+        bottom-20
+        right-4
+        z-50
+        flex
+        h-14
+        w-14
+        items-center
+        justify-center
+        rounded-full
+        bg-[#2F7D57]
+        text-white
+        shadow-lg
+        transition
+        hover:bg-[#27694A]
+        lg:hidden
+      "
+    >
+      <Plus className="size-5" />
+    </Link>
+  </main>
+);
 }
 
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-black/25 p-3 text-center sm:p-4">
-      <p className="font-heading text-2xl font-normal leading-none text-[var(--color-text)] sm:text-3xl">
-        {value}
-      </p>
-      <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.14em] text-[var(--color-text-soft)] sm:text-[10px] sm:tracking-[0.2em]">
-        {label}
-      </p>
-    </div>
-  );
+  <div
+    className="
+      rounded-2xl
+      border
+      border-[#E4DED3]
+      bg-white
+      p-3
+      text-center
+      shadow-sm
+      dark:border-[#2A2F35]
+      dark:bg-[#171A1F]
+      sm:p-4
+    "
+  >
+    <p
+      className="
+        text-2xl
+        font-bold
+        leading-none
+        text-[#111827]
+        dark:text-[#E7E9EC]
+        sm:text-3xl
+      "
+    >
+      {value}
+    </p>
+
+    <p
+      className="
+        mt-1
+        text-[8px]
+        font-bold
+        uppercase
+        tracking-[0.14em]
+        text-[#667085]
+        dark:text-[#AAB2BD]
+        sm:text-[10px]
+        sm:tracking-[0.2em]
+      "
+    >
+      {label}
+    </p>
+  </div>
+);
 }
 
 function EmptyState({

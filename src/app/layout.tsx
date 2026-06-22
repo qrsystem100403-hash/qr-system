@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Libre_Baskerville, Manrope } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner"
+
 
 const libreBaskerville = Libre_Baskerville({
   subsets: ["latin"],
@@ -31,6 +33,7 @@ export default function RootLayout({
         className={`${libreBaskerville.variable} ${manrope.variable} font-[var(--font-body)]`}
       >
         {children}
+        <Toaster richColors />
       </body>
     </html>
   );

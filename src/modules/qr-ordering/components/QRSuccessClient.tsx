@@ -23,6 +23,9 @@ import {
   saveQROrder,
   extendQROrderFor24Hours,
 } from "@/modules/qr-ordering/lib/qrOrderStorage";
+import {
+  WORKFLOWS,
+} from "@/lib/orders/workflow"
 
 type OrderStatus = "pending" | "preparing" | "ready" | "served" | "cancelled";
 type PaymentStatus = "pending" | "paid";
@@ -41,8 +44,10 @@ type Props = {
   orderId?: string;
   trackingToken?: string;
   table: string;
+  tableToken: string;
   restaurantId: string;
   restaurantPhone?: string | null;
+  workflowMode: "simple" | "advanced";
 };
 
 const statusContent: Record<
@@ -82,20 +87,7 @@ const statusContent: Record<
   },
 };
 
-const progressStatuses: OrderStatus[] = [
-  "pending",
-  "preparing",
-  "ready",
-  "served",
-];
 
-const progressLabels: Record<OrderStatus, string> = {
-  pending: "Received",
-  preparing: "Preparing",
-  ready: "Ready",
-  served: "Served",
-  cancelled: "Cancelled",
-};
 
 function formatOrderTime(date: string) {
   return new Intl.DateTimeFormat("en-IN", {
@@ -111,9 +103,27 @@ export default function QRSuccessClient({
   orderId,
   trackingToken,
   table,
+  tableToken,
   restaurantId,
   restaurantPhone,
+  workflowMode,
 }: Props) {
+ 
+  const workflow =
+  WORKFLOWS[workflowMode]
+
+const progressStatuses =
+  workflow.statuses.filter(
+    (status) =>
+      status !== "cancelled"
+  )
+
+const progressLabels =
+  workflow.labels as Record<
+    string,
+    string
+    >
+
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -130,10 +140,11 @@ export default function QRSuccessClient({
 
     try {
       const params = new URLSearchParams({
-        orderId,
-        trackingToken: normalizedTrackingToken,
-        table,
-      });
+  orderId,
+  trackingToken:
+    normalizedTrackingToken,
+  tableToken,
+});
 
       const response = await fetch(
         `/api/qr/orders/status?${params.toString()}`,
@@ -167,18 +178,36 @@ export default function QRSuccessClient({
     } finally {
       setLoading(false);
     }
-  }, [orderId, normalizedTrackingToken, table]);
+  }, [
+  orderId,
+  normalizedTrackingToken,
+  tableToken,
+]);
 
   useEffect(() => {
-    if (!orderId || !normalizedTrackingToken || !table || !restaurantId) return;
+    if (
+  !orderId ||
+  !normalizedTrackingToken ||
+  !tableToken ||
+  !restaurantId
+) return;
 
     saveQROrder({
-      orderId,
-      trackingToken: normalizedTrackingToken,
-      table,
-      restaurantId,
-    });
-  }, [orderId, normalizedTrackingToken, table, restaurantId]);
+  orderId,
+  trackingToken: normalizedTrackingToken,
+
+  table,
+  tableToken,
+
+  restaurantId,
+});
+  }, [
+  orderId,
+  normalizedTrackingToken,
+  table,
+  tableToken,
+  restaurantId,
+]);
 
   useEffect(() => {
     const timer = setTimeout(fetchOrder, 0);
@@ -249,7 +278,7 @@ export default function QRSuccessClient({
     <div className="mx-auto max-w-5xl px-3 pb-10 pt-4 sm:px-4">
       <div className="mb-5 flex items-center justify-between gap-3">
         <Link
-          href={`/qr/table/${encodeURIComponent(table)}`}
+          href={`/qr/table/${tableToken}`}
           className="inline-flex h-10 items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.025] px-3 text-xs font-black uppercase tracking-[0.12em] text-[var(--color-text-muted)] transition hover:border-[var(--color-border-gold)] hover:text-[var(--color-gold)]"
         >
           <ArrowLeft className="size-4" />
@@ -596,14 +625,14 @@ export default function QRSuccessClient({
 
             <div className="mt-5 grid gap-2">
               <Link
-                href={`/qr/table/${encodeURIComponent(table)}/orders`}
+                href={`/qr/table/${tableToken}/orders`}
                 className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[var(--color-border-gold)]/60 bg-[var(--color-gold)]/10 px-4 text-xs font-black uppercase tracking-[0.14em] text-[var(--color-gold)] transition hover:bg-[var(--color-gold)]/15"
               >
                 <ReceiptText className="size-4" />
                 View My Orders
               </Link>
               <Link
-                href={`/qr/table/${encodeURIComponent(table)}`}
+                href={`/qr/table/${tableToken}`}
                 className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.07] bg-black/15 px-4 text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-muted)] transition hover:border-[var(--color-border-gold)] hover:text-[var(--color-gold)]"
               >
                 <RotateCcw className="size-4" />

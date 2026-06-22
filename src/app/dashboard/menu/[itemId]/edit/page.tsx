@@ -43,17 +43,86 @@ export default async function EditMenuItemPage({ params }: Props) {
 
   if (categoriesError) {
     return (
-      <main className="min-h-screen bg-[var(--color-bg)] px-4 py-4 text-[var(--color-text)]">
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
-          <h1 className="text-xl font-semibold text-red-100">
-            Failed to load categories
-          </h1>
-          <p className="mt-2 text-sm text-red-200">
+  <main className="min-h-screen bg-[#F8F9FB] dark:bg-[#101214] px-4 py-5">
+    <div className="mx-auto max-w-5xl">
+      <div
+        className="
+          rounded-3xl
+          border
+          border-red-200
+          bg-white
+          p-6
+          shadow-sm
+          dark:border-red-900/40
+          dark:bg-[#171A1F]
+        "
+      >
+        <div
+          className="
+            flex
+            size-14
+            items-center
+            justify-center
+            rounded-2xl
+            bg-red-50
+            text-red-600
+            dark:bg-red-900/20
+            dark:text-red-400
+          "
+        >
+          ✕
+        </div>
+
+        <h1
+          className="
+            mt-5
+            text-2xl
+            font-bold
+            text-[#111827]
+            dark:text-[#E7E9EC]
+          "
+        >
+          Failed to load categories
+        </h1>
+
+        <p
+          className="
+            mt-2
+            text-sm
+            leading-6
+            text-[#667085]
+            dark:text-[#AAB2BD]
+          "
+        >
+          We couldn't load the menu categories required to continue.
+        </p>
+
+        <div
+          className="
+            mt-5
+            rounded-2xl
+            border
+            border-red-100
+            bg-red-50
+            p-4
+            dark:border-red-900/40
+            dark:bg-red-900/10
+          "
+        >
+          <p
+            className="
+              text-sm
+              text-red-700
+              dark:text-red-400
+            "
+          >
             {categoriesError.message}
           </p>
         </div>
-      </main>
-    );
+      </div>
+    </div>
+  </main>
+);
   }
 
   const subCategories = categories ?? [];
@@ -77,17 +146,86 @@ export default async function EditMenuItemPage({ params }: Props) {
 
     if (parentsError) {
       return (
-        <main className="min-h-screen bg-[var(--color-bg)] px-4 py-4 text-[var(--color-text)]">
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
-            <h1 className="text-xl font-semibold text-red-100">
-              Failed to load parent categories
-            </h1>
-            <p className="mt-2 text-sm text-red-200">
-              {parentsError.message}
-            </p>
-          </div>
-        </main>
-      );
+  <main className="min-h-screen bg-[#F8F9FB] dark:bg-[#101214] px-4 py-5">
+    <div className="mx-auto max-w-5xl">
+      <div
+        className="
+          rounded-3xl
+          border
+          border-red-200
+          bg-white
+          p-6
+          shadow-sm
+          dark:border-red-900/40
+          dark:bg-[#171A1F]
+        "
+      >
+        <div
+          className="
+            flex
+            size-14
+            items-center
+            justify-center
+            rounded-2xl
+            bg-red-50
+            text-red-600
+            dark:bg-red-900/20
+            dark:text-red-400
+          "
+        >
+          ✕
+        </div>
+
+        <h1
+          className="
+            mt-5
+            text-2xl
+            font-bold
+            text-[#111827]
+            dark:text-[#E7E9EC]
+          "
+        >
+          Failed to load parent categories
+        </h1>
+
+        <p
+          className="
+            mt-2
+            text-sm
+            leading-6
+            text-[#667085]
+            dark:text-[#AAB2BD]
+          "
+        >
+          We couldn't load the parent category hierarchy required to build the menu structure.
+        </p>
+
+        <div
+          className="
+            mt-5
+            rounded-2xl
+            border
+            border-red-100
+            bg-red-50
+            p-4
+            dark:border-red-900/40
+            dark:bg-red-900/10
+          "
+        >
+          <p
+            className="
+              text-sm
+              text-red-700
+              dark:text-red-400
+            "
+          >
+            {parentsError.message}
+          </p>
+        </div>
+      </div>
+    </div>
+  </main>
+);
     }
 
     parentMap = new Map(
@@ -104,54 +242,176 @@ export default async function EditMenuItemPage({ params }: Props) {
   }));
 
   return (
-    <main className="min-h-screen bg-[var(--color-bg)] px-4 py-4 text-[var(--color-text)] sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <Link
-            href="/dashboard/menu"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] bg-black/25 text-[var(--color-text-muted)] transition hover:border-[var(--color-border-gold)] hover:text-[var(--color-gold)]"
-            aria-label="Back to menu"
-          >
-            <ArrowLeft className="size-4" />
-          </Link>
+  <main className="min-h-screen bg-[#F8F9FB] dark:bg-[#101214] px-4 py-5">
+    <div className="mx-auto max-w-5xl">
+      {/* Header */}
+      <div className="mb-6">
+        <Link
+          href="/dashboard/menu"
+          className="
+            mb-4
+            inline-flex
+            items-center
+            gap-2
+            text-sm
+            font-medium
+            text-[#667085]
+            transition
+            hover:text-[#111827]
+            dark:text-[#AAB2BD]
+            dark:hover:text-[#E7E9EC]
+          "
+        >
+          <ArrowLeft className="size-4" />
+          Back to Menu
+        </Link>
 
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-gold)]">
-              Menu Builder
-            </p>
-            <h1 className="mt-1 truncate font-heading text-3xl font-normal leading-none sm:text-4xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1
+              className="
+                text-4xl
+                font-bold
+                tracking-tight
+                text-[#111827]
+                dark:text-[#E7E9EC]
+              "
+            >
               Edit Menu Item
             </h1>
+
+            <div
+              className="
+                mt-3
+                inline-flex
+                rounded-full
+                bg-[#EEF2FF]
+                px-3
+                py-1
+                dark:bg-[#1F2430]
+              "
+            >
+              <span
+                className="
+                  text-xs
+                  font-medium
+                  text-[#475467]
+                  dark:text-[#AAB2BD]
+                "
+              >
+                {item.name}
+              </span>
+            </div>
           </div>
 
-          <div className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--color-gold)]/10 text-[var(--color-gold)]">
-            <Pencil className="size-4" />
+          <div className="hidden sm:flex">
+            <div
+              className="
+                flex
+                h-14
+                items-center
+                gap-2
+                rounded-2xl
+                bg-[#2F7D57]
+                px-5
+                font-medium
+                text-white
+                shadow-sm
+              "
+            >
+              <Pencil className="size-4" />
+              Edit Item
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="mb-4 rounded-2xl border border-[var(--color-border)] bg-black/20 px-4 py-3">
-          <p className="truncate text-sm leading-6 text-[var(--color-text-muted)]">
-            Editing{" "}
-            <span className="font-medium text-[var(--color-text)]">
-              {item.name}
-            </span>
+      {/* Info Card */}
+      <div
+        className="
+          mb-6
+          rounded-3xl
+          border
+          border-[#E4DED3]
+          bg-white
+          p-5
+          shadow-sm
+          dark:border-[#2A2F35]
+          dark:bg-[#171A1F]
+        "
+      >
+        <p
+          className="
+            text-sm
+            text-[#667085]
+            dark:text-[#AAB2BD]
+          "
+        >
+          Editing menu item{" "}
+          <span
+            className="
+              font-semibold
+              text-[#111827]
+              dark:text-[#E7E9EC]
+            "
+          >
+            {item.name}
+          </span>
+        </p>
+      </div>
+
+      {/* Form */}
+      <section
+        className="
+          rounded-3xl
+          border
+          border-[#E4DED3]
+          bg-white
+          p-6
+          shadow-sm
+          dark:border-[#2A2F35]
+          dark:bg-[#171A1F]
+        "
+      >
+        <div className="mb-6">
+          <h2
+            className="
+              text-xl
+              font-semibold
+              text-[#111827]
+              dark:text-[#E7E9EC]
+            "
+          >
+            Item Details
+          </h2>
+
+          <p
+            className="
+              mt-1
+              text-sm
+              text-[#667085]
+              dark:text-[#AAB2BD]
+            "
+          >
+            Update information, pricing, availability and images.
           </p>
         </div>
 
-        <section className="rounded-[22px] border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-4 shadow-[var(--shadow-soft)] sm:p-5">
-          <MenuItemForm
-            item={
-              {
-                ...item,
-                tags: item.tag ? [item.tag] : [],
-              } as Parameters<typeof MenuItemForm>[0]["item"]
-            }
-            categories={
-              formattedCategories as Parameters<typeof MenuItemForm>[0]["categories"]
-            }
-          />
-        </section>
-      </div>
-    </main>
-  );
+        <MenuItemForm
+          item={
+            {
+              ...item,
+              tags: item.tag ? [item.tag] : [],
+            } as Parameters<typeof MenuItemForm>[0]["item"]
+          }
+          categories={
+            formattedCategories as Parameters<
+              typeof MenuItemForm
+            >[0]["categories"]
+          }
+        />
+      </section>
+    </div>
+  </main>
+);
 }

@@ -98,6 +98,7 @@ type MenuPayload = {
 
 type Props = {
   table: string
+  tableToken: string
   restaurantId: string
   menu: MenuPayload
 }
@@ -247,7 +248,12 @@ function MenuSkeleton() {
   )
 }
 
-export default function QRMenuClient({ table, restaurantId, menu }: Props) {
+export default function QRMenuClient({
+  table,
+  tableToken,
+  restaurantId,
+  menu,
+}: Props) {
   const [liveMenu, setLiveMenu] = useState<MenuItem[]>(menu.items)
   const [categories, setCategories] = useState<Category[]>(menu.categories)
   const [refreshing, setRefreshing] = useState(false)
@@ -261,6 +267,33 @@ export default function QRMenuClient({ table, restaurantId, menu }: Props) {
     variantId: null,
     addonIds: [],
   })
+
+  useEffect(() => {
+  const createSession = async () => {
+    try {
+      await fetch(
+        "/api/qr/session",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            tableToken,
+          }),
+        }
+      )
+    } catch (error) {
+      console.error(
+        "QR SESSION ERROR:",
+        error
+      )
+    }
+  }
+
+  createSession()
+}, [tableToken])
 
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -560,7 +593,7 @@ export default function QRMenuClient({ table, restaurantId, menu }: Props) {
       </div>
 
       <Link
-        href={`/qr/table/${encodeURIComponent(table)}/orders`}
+        href={`/qr/table/${tableToken}/orders`}
         className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-gold)]/70 bg-[var(--color-gold)]/10 px-4 text-[11px] font-black uppercase tracking-[0.16em] text-[var(--color-gold)] transition hover:bg-[var(--color-gold)] hover:text-[var(--color-bg)]"
       >
         Orders
@@ -1258,7 +1291,7 @@ export default function QRMenuClient({ table, restaurantId, menu }: Props) {
             </div>
 
             <Link
-              href={`/qr/table/${encodeURIComponent(table)}/cart`}
+              href={`/qr/table/${tableToken}/cart`}
               className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[var(--color-gold)] px-4 text-xs font-black uppercase tracking-[0.12em] text-[var(--color-bg)]"
             >
               View Cart

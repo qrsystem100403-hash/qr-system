@@ -3,11 +3,20 @@ import { Search, X } from "lucide-react"
 
 type Props = {
   searchQuery: string
+  activeOrders: number
+  newOrders: number
+  revenue: number
 }
 
-export default function OrdersSearch({ searchQuery }: Props) {
+export default function OrdersSearch({
+  searchQuery,
+  activeOrders,
+  newOrders,
+  revenue,
+}: Props) {
   return (
-    <form className="mb-5 flex h-12 items-center gap-3 rounded-2xl border border-[#E4DED3] bg-[#FCFAF6] px-4 dark:border-[#2A2F35] dark:bg-[#171A1F]">
+    <>
+     <form className="mb-5 flex h-12 items-center gap-3 rounded-2xl border border-[#E4DED3] bg-[#FCFAF6] px-4 dark:border-[#2A2F35] dark:bg-[#171A1F]">
       <Search className="size-4 shrink-0 text-[#98A2B3]" />
 
       <input
@@ -27,12 +36,31 @@ export default function OrdersSearch({ searchQuery }: Props) {
         </Link>
       )}
 
-      <button
-        type="submit"
-        className="h-8 shrink-0 rounded-full bg-[#2F7D57] px-4 text-xs font-black text-white transition hover:bg-[#256A49]"
-      >
-        Search
-      </button>
     </form>
+    <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+  <div className="rounded-full border border-[#E4DED3] bg-white px-3 py-1.5 dark:border-[#2A2F35] dark:bg-[#171A1F]">
+    <span className="font-semibold">
+      {activeOrders}
+    </span>{" "}
+    Active
+  </div>
+
+  <div className="rounded-full border border-[#E4DED3] bg-white px-3 py-1.5 dark:border-[#2A2F35] dark:bg-[#171A1F]">
+    <span className="font-semibold text-[#7FA8CC]">
+      {newOrders}
+    </span>{" "}
+    New
+  </div>
+
+  <div className="rounded-full border border-[#E4DED3] bg-white px-3 py-1.5 dark:border-[#2A2F35] dark:bg-[#171A1F]">
+    <span className="font-semibold">
+      ₹{revenue}
+    </span>{" "}
+    Today
+  </div>
+</div>
+    </>
+   
+    
   )
 }

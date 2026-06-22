@@ -16,9 +16,7 @@ type ErrorStateProps = {
   tone: "red" | "yellow"
 }
 
-function normalizeTableName(value: string) {
-  return decodeURIComponent(value).trim().replace(/\s+/g, "-")
-}
+
 
 function ErrorState({ title, message, tone }: ErrorStateProps) {
   const toneClass =
@@ -54,8 +52,7 @@ function ErrorState({ title, message, tone }: ErrorStateProps) {
 }
 
 export default async function QRTablePage({ params }: Props) {
-  const { table } = await params
-  const normalizedTable = normalizeTableName(table)
+  
 
   const restaurant = await resolvePublicRestaurant()
 
@@ -69,12 +66,26 @@ export default async function QRTablePage({ params }: Props) {
     )
   }
 
-  const { data: restaurantTable, error: tableError } = await supabaseAdmin
-    .from("restaurant_tables")
-    .select("id, name, is_active")
-    .eq("restaurant_id", restaurant.id)
-    .ilike("name", normalizedTable)
-    .single()
+  const { table: qrToken } =
+  await params
+
+const {
+  data: restaurantTable,
+  error: tableError,
+} = await supabaseAdmin
+  .from("restaurant_tables")
+  .select(
+    "id, name, is_active, qr_token"
+  )
+  .eq(
+    "restaurant_id",
+    restaurant.id
+  )
+  .eq(
+    "qr_token",
+    qrToken
+  )
+  .single()
 
   if (tableError || !restaurantTable) {
     console.error("TABLE LOAD ERROR:", tableError)
@@ -145,10 +156,11 @@ export default async function QRTablePage({ params }: Props) {
 
       <div className="relative mx-auto max-w-5xl px-3 pb-8 sm:px-4">
         <QRMenuClient
-          table={restaurantTable.name}
-          restaurantId={restaurant.id}
-          menu={menu}
-        />
+  table={restaurantTable.name}
+  tableToken={restaurantTable.qr_token}
+  restaurantId={restaurant.id}
+  menu={menu}
+/>
       </div>
     </main>
   )

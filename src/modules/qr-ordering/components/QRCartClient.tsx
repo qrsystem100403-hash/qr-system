@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -16,51 +16,52 @@ import {
   Trash2,
   Utensils,
   X,
-} from "lucide-react"
-import { supabaseBrowser } from "@/lib/supabase/browser"
-import { useQRCartStore } from "@/store/qrCartStore"
+} from "lucide-react";
+import { supabaseBrowser } from "@/lib/supabase/browser";
+import { useQRCartStore } from "@/store/qrCartStore";
 
 type Props = {
-  table: string
-  restaurantId: string
-}
+  table: string;
+  tableToken: string;
+  restaurantId: string;
+};
 
 type Category = {
-  id: string
-  name: string
-  available_from: string | null
-  available_until: string | null
-  parent_id: string | null
-}
+  id: string;
+  name: string;
+  available_from: string | null;
+  available_until: string | null;
+  parent_id: string | null;
+};
 
 type MenuAddon = {
-  id: string
-  name: string
-  price: number
-  sort_order: number
-  is_active: boolean
-}
+  id: string;
+  name: string;
+  price: number;
+  sort_order: number;
+  is_active: boolean;
+};
 
 type MenuVariant = {
-  id: string
-  name: string
-  price: number
-  sort_order: number
-  is_available: boolean
-  menu_item_addons?: MenuAddon[] | null
-}
+  id: string;
+  name: string;
+  price: number;
+  sort_order: number;
+  is_available: boolean;
+  menu_item_addons?: MenuAddon[] | null;
+};
 
 type LiveMenuItem = {
-  id: string
-  restaurant_id?: string
-  name: string
-  price: number
-  image: string | null
-  is_available: boolean
-  is_archived: boolean
-  category_id: string | null
-  menu_item_variants?: MenuVariant[] | null
-}
+  id: string;
+  restaurant_id?: string;
+  name: string;
+  price: number;
+  image: string | null;
+  is_available: boolean;
+  is_archived: boolean;
+  category_id: string | null;
+  menu_item_variants?: MenuVariant[] | null;
+};
 
 function getCurrentMinutesIndia() {
   const parts = new Intl.DateTimeFormat("en-IN", {
@@ -68,52 +69,56 @@ function getCurrentMinutesIndia() {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-  }).formatToParts(new Date())
+  }).formatToParts(new Date());
 
-  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0)
-  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0)
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
 
-  return hour * 60 + minute
+  return hour * 60 + minute;
 }
 
 function timeToMinutes(time: string) {
-  const [hours, minutes] = time.split(":").map(Number)
-  return hours * 60 + minutes
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
 }
 
 function isCategoryAvailable(category: Category | null) {
-  if (!category?.available_from && !category?.available_until) return true
+  if (!category?.available_from && !category?.available_until) return true;
 
-  const current = getCurrentMinutesIndia()
-  const from = category.available_from ? timeToMinutes(category.available_from) : 0
+  const current = getCurrentMinutesIndia();
+  const from = category.available_from
+    ? timeToMinutes(category.available_from)
+    : 0;
   const until = category.available_until
     ? timeToMinutes(category.available_until)
-    : 24 * 60 - 1
+    : 24 * 60 - 1;
 
-  return current >= from && current <= until
+  return current >= from && current <= until;
 }
 
 function formatTime(time: string | null) {
-  if (!time) return ""
+  if (!time) return "";
 
-  const [hourRaw, minute] = time.split(":")
-  const hour = Number(hourRaw)
-  const suffix = hour >= 12 ? "PM" : "AM"
-  const displayHour = hour % 12 || 12
+  const [hourRaw, minute] = time.split(":");
+  const hour = Number(hourRaw);
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
 
-  return `${displayHour}:${minute} ${suffix}`
+  return `${displayHour}:${minute} ${suffix}`;
 }
 
 function getAvailabilityText(category: Category | null) {
-  if (!category) return null
+  if (!category) return null;
 
-  const { available_from, available_until } = category
+  const { available_from, available_until } = category;
 
-  if (!available_from && !available_until) return null
-  if (available_from && !available_until) return `Available after ${formatTime(available_from)}`
-  if (!available_from && available_until) return `Available until ${formatTime(available_until)}`
+  if (!available_from && !available_until) return null;
+  if (available_from && !available_until)
+    return `Available after ${formatTime(available_from)}`;
+  if (!available_from && available_until)
+    return `Available until ${formatTime(available_until)}`;
 
-  return `Available ${formatTime(available_from)} - ${formatTime(available_until)}`
+  return `Available ${formatTime(available_from)} - ${formatTime(available_until)}`;
 }
 
 function VegIcon() {
@@ -121,135 +126,142 @@ function VegIcon() {
     <span className="grid size-4 shrink-0 place-items-center rounded-[4px] border border-green-500 bg-green-500/5">
       <span className="size-2 rounded-full bg-green-500" />
     </span>
-  )
+  );
 }
 
-export default function QRCartClient({ table, restaurantId }: Props) {
-  const router = useRouter()
-  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+export default function QRCartClient({
+  table,
+  tableToken,
+  restaurantId,
+}: Props) {
+  const router = useRouter();
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [loading, setLoading] = useState(false)
-  const [customerNote, setCustomerNote] = useState("")
-  const [liveItems, setLiveItems] = useState<Record<string, LiveMenuItem>>({})
-  const [categories, setCategories] = useState<Record<string, Category>>({})
-  const [errorMessage, setErrorMessage] = useState("")
-  const [repeatTarget, setRepeatTarget] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false);
+  const [customerNote, setCustomerNote] = useState("");
+  const [liveItems, setLiveItems] = useState<Record<string, LiveMenuItem>>({});
+  const [categories, setCategories] = useState<Record<string, Category>>({});
+  const [errorMessage, setErrorMessage] = useState("");
+  const [repeatTarget, setRepeatTarget] = useState<string | null>(null);
   const [customizingItem, setCustomizingItem] = useState<LiveMenuItem | null>(
-    null
-  )
+    null,
+  );
   const [sheetSelection, setSheetSelection] = useState<{
-    variantId: string | null
-    addonIds: string[]
+    variantId: string | null;
+    addonIds: string[];
   }>({
     variantId: null,
     addonIds: [],
-  })
+  });
 
-  const cart = useQRCartStore((state) => state.cart)
-  const hasHydrated = useQRCartStore((state) => state.hasHydrated)
-  const clearRestaurantCart = useQRCartStore((state) => state.clearRestaurantCart)
-  const increaseQuantity = useQRCartStore((state) => state.increaseQuantity)
-  const decreaseQuantity = useQRCartStore((state) => state.decreaseQuantity)
-  const removeFromCart = useQRCartStore((state) => state.removeFromCart)
-  const updateCartItem = useQRCartStore((state) => state.updateCartItem)
+  const cart = useQRCartStore((state) => state.cart);
+  const hasHydrated = useQRCartStore((state) => state.hasHydrated);
+  const clearRestaurantCart = useQRCartStore(
+    (state) => state.clearRestaurantCart,
+  );
+  const increaseQuantity = useQRCartStore((state) => state.increaseQuantity);
+  const decreaseQuantity = useQRCartStore((state) => state.decreaseQuantity);
+  const removeFromCart = useQRCartStore((state) => state.removeFromCart);
+  const updateCartItem = useQRCartStore((state) => state.updateCartItem);
 
   const restaurantCart = useMemo(
     () => cart.filter((item) => item.restaurantId === restaurantId),
-    [cart, restaurantId]
-  )
+    [cart, restaurantId],
+  );
 
   const itemIdsKey = useMemo(
     () =>
       Array.from(new Set(restaurantCart.map((item) => item.id)))
         .sort()
         .join(","),
-    [restaurantCart]
-  )
+    [restaurantCart],
+  );
 
   const total = useMemo(
-    () => restaurantCart.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [restaurantCart]
-  )
+    () =>
+      restaurantCart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [restaurantCart],
+  );
 
   const totalItems = useMemo(
     () => restaurantCart.reduce((sum, item) => sum + item.quantity, 0),
-    [restaurantCart]
-  )
+    [restaurantCart],
+  );
 
   const fetchLiveData = useCallback(async () => {
-  if (!itemIdsKey) {
-    setLiveItems({})
-    setCategories({})
-    return
-  }
-
-  try {
-    const itemIds = itemIdsKey.split(",")
-
-    const response = await fetch("/api/qr/cart/live", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify({ itemIds }),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok || !data.success) {
-      console.error("CART LIVE API ERROR:", data.error)
-      return
+    if (!itemIdsKey) {
+      setLiveItems({});
+      setCategories({});
+      return;
     }
 
-    const itemMap: Record<string, LiveMenuItem> = {}
-    const categoryMap: Record<string, Category> = {}
+    try {
+      const itemIds = itemIdsKey.split(",");
 
-    data.data.categories?.forEach((cat: Category) => {
-      categoryMap[cat.id] = cat
-    })
+      const response = await fetch("/api/qr/cart/live", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ itemIds }),
+      });
 
-    data.data.items?.forEach((item: LiveMenuItem) => {
-      itemMap[item.id] = item
-    })
+      const data = await response.json();
 
-    const currentCart = useQRCartStore.getState().cart
+      if (!response.ok || !data.success) {
+        console.error("CART LIVE API ERROR:", data.error);
+        return;
+      }
 
-    data.data.items?.forEach((item: LiveMenuItem) => {
-      currentCart
-        .filter((cartItem) => cartItem.restaurantId === restaurantId)
-        .filter((cartItem) => cartItem.id === item.id)
-        .forEach((cartItem) => {
-          if (
-            cartItem.name !== item.name ||
-            cartItem.basePrice !== item.price ||
-            cartItem.image !== item.image
-          ) {
-            updateCartItem(cartItem.cartKey, {
-              name: item.name,
-              basePrice: item.price,
-              image: item.image,
-            })
-          }
-        })
-    })
+      const itemMap: Record<string, LiveMenuItem> = {};
+      const categoryMap: Record<string, Category> = {};
 
-    setLiveItems(itemMap)
-    setCategories(categoryMap)
-  } catch (error) {
-    console.error("CART LIVE FETCH ERROR:", error)
-  }
-}, [itemIdsKey, restaurantId, updateCartItem])
+      data.data.categories?.forEach((cat: Category) => {
+        categoryMap[cat.id] = cat;
+      });
+
+      data.data.items?.forEach((item: LiveMenuItem) => {
+        itemMap[item.id] = item;
+      });
+
+      const currentCart = useQRCartStore.getState().cart;
+
+      data.data.items?.forEach((item: LiveMenuItem) => {
+        currentCart
+          .filter((cartItem) => cartItem.restaurantId === restaurantId)
+          .filter((cartItem) => cartItem.id === item.id)
+          .forEach((cartItem) => {
+            if (
+              cartItem.name !== item.name ||
+              cartItem.basePrice !== item.price ||
+              cartItem.image !== item.image
+            ) {
+              updateCartItem(cartItem.cartKey, {
+                name: item.name,
+                basePrice: item.price,
+                image: item.image,
+              });
+            }
+          });
+      });
+
+      setLiveItems(itemMap);
+      setCategories(categoryMap);
+    } catch (error) {
+      console.error("CART LIVE FETCH ERROR:", error);
+    }
+  }, [itemIdsKey, restaurantId, updateCartItem]);
 
   const scheduleLiveRefresh = useCallback(() => {
-    if (refreshTimer.current) clearTimeout(refreshTimer.current)
-    refreshTimer.current = setTimeout(fetchLiveData, 400)
-  }, [fetchLiveData])
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(fetchLiveData, 400);
+  }, [fetchLiveData]);
 
   useEffect(() => {
-    if (!hasHydrated) return
+    if (!hasHydrated) return;
 
-    const timer = setTimeout(fetchLiveData, 0)
-    return () => clearTimeout(timer)
-  }, [hasHydrated, fetchLiveData])
+    const timer = setTimeout(fetchLiveData, 0);
+    return () => clearTimeout(timer);
+  }, [hasHydrated, fetchLiveData]);
 
   useEffect(() => {
     const channel = supabaseBrowser
@@ -262,7 +274,7 @@ export default function QRCartClient({ table, restaurantId }: Props) {
           table: "menu_items",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        scheduleLiveRefresh
+        scheduleLiveRefresh,
       )
       .on(
         "postgres_changes",
@@ -272,98 +284,101 @@ export default function QRCartClient({ table, restaurantId }: Props) {
           table: "menu_categories",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        scheduleLiveRefresh
+        scheduleLiveRefresh,
       )
-      .subscribe()
+      .subscribe();
 
     return () => {
-      if (refreshTimer.current) clearTimeout(refreshTimer.current)
-      supabaseBrowser.removeChannel(channel)
-    }
-  }, [restaurantId, scheduleLiveRefresh])
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      supabaseBrowser.removeChannel(channel);
+    };
+  }, [restaurantId, scheduleLiveRefresh]);
 
   function getItemCategories(item: LiveMenuItem | undefined) {
     if (!item?.category_id) {
-      return { subCategory: null, mainCategory: null }
+      return { subCategory: null, mainCategory: null };
     }
 
-    const subCategory = categories[item.category_id] ?? null
+    const subCategory = categories[item.category_id] ?? null;
     const mainCategory = subCategory?.parent_id
-      ? categories[subCategory.parent_id] ?? null
-      : null
+      ? (categories[subCategory.parent_id] ?? null)
+      : null;
 
-    return { subCategory, mainCategory }
+    return { subCategory, mainCategory };
   }
 
   function getActiveVariants(item: LiveMenuItem | null | undefined) {
     return (item?.menu_item_variants ?? [])
       .filter((variant) => variant.is_available)
-      .sort((a, b) => a.sort_order - b.sort_order)
+      .sort((a, b) => a.sort_order - b.sort_order);
   }
 
   function getActiveAddons(variant: MenuVariant | null) {
     return (variant?.menu_item_addons ?? [])
       .filter((addon) => addon.is_active)
-      .sort((a, b) => a.sort_order - b.sort_order)
+      .sort((a, b) => a.sort_order - b.sort_order);
   }
 
   function hasCustomizationOptions(item: LiveMenuItem | undefined) {
-    const variants = getActiveVariants(item)
+    const variants = getActiveVariants(item);
 
     return (
       variants.length > 0 ||
       variants.some((variant) =>
-        (variant.menu_item_addons ?? []).some((addon) => addon.is_active)
+        (variant.menu_item_addons ?? []).some((addon) => addon.is_active),
       )
-    )
+    );
   }
 
   function openCustomizeSheet(item: LiveMenuItem) {
-    const variants = getActiveVariants(item)
-    const firstVariant = variants[0] ?? null
+    const variants = getActiveVariants(item);
+    const firstVariant = variants[0] ?? null;
 
-    setCustomizingItem(item)
+    setCustomizingItem(item);
     setSheetSelection({
       variantId: firstVariant?.id ?? null,
       addonIds: [],
-    })
+    });
   }
 
   function closeCustomizeSheet() {
-    setCustomizingItem(null)
+    setCustomizingItem(null);
     setSheetSelection({
       variantId: null,
       addonIds: [],
-    })
+    });
   }
 
   function addCustomizedItemToCart() {
-    if (!customizingItem) return
+    if (!customizingItem) return;
 
-    const variants = getActiveVariants(customizingItem)
+    const variants = getActiveVariants(customizingItem);
     const selectedVariant =
       variants.find((variant) => variant.id === sheetSelection.variantId) ??
       variants[0] ??
-      null
+      null;
 
-    const addons = getActiveAddons(selectedVariant)
+    const addons = getActiveAddons(selectedVariant);
     const selectedAddonIds = sheetSelection.addonIds.filter((addonId) =>
-      addons.some((addon) => addon.id === addonId)
-    )
+      addons.some((addon) => addon.id === addonId),
+    );
 
     const selectedAddons = addons.filter((addon) =>
-      selectedAddonIds.includes(addon.id)
-    )
+      selectedAddonIds.includes(addon.id),
+    );
 
-    const itemPrice = selectedVariant?.price ?? customizingItem.price
-    const addonTotal = selectedAddons.reduce((sum, addon) => sum + addon.price, 0)
-    const finalPrice = itemPrice + addonTotal
+    const itemPrice = selectedVariant?.price ?? customizingItem.price;
+    const addonTotal = selectedAddons.reduce(
+      (sum, addon) => sum + addon.price,
+      0,
+    );
+    const finalPrice = itemPrice + addonTotal;
 
     const cartKey = [
       customizingItem.id,
       selectedVariant?.id ?? "base",
       ...selectedAddonIds.sort(),
-    ].join("__")
+    ].join("__");
 
     useQRCartStore.getState().addToCart({
       cartKey,
@@ -386,32 +401,32 @@ export default function QRCartClient({ table, restaurantId }: Props) {
         name: addon.name,
         price: addon.price,
       })),
-    })
+    });
 
-    closeCustomizeSheet()
+    closeCustomizeSheet();
   }
 
   const unavailableCartItems = restaurantCart.filter((item) => {
-    const liveItem = liveItems[item.id]
-    if (!liveItem) return true
+    const liveItem = liveItems[item.id];
+    if (!liveItem) return true;
 
-    const { subCategory, mainCategory } = getItemCategories(liveItem)
+    const { subCategory, mainCategory } = getItemCategories(liveItem);
 
     return (
       !liveItem.is_available ||
       liveItem.is_archived ||
       !isCategoryAvailable(subCategory) ||
       !isCategoryAvailable(mainCategory)
-    )
-  })
+    );
+  });
 
-  const hasUnavailableItems = unavailableCartItems.length > 0
+  const hasUnavailableItems = unavailableCartItems.length > 0;
 
   const placeOrder = async () => {
-    if (!restaurantCart.length || loading || hasUnavailableItems) return
+    if (!restaurantCart.length || loading || hasUnavailableItems) return;
 
-    setErrorMessage("")
-    setLoading(true)
+    setErrorMessage("");
+    setLoading(true);
 
     try {
       const sanitizedCart = restaurantCart.map((item) => ({
@@ -420,55 +435,62 @@ export default function QRCartClient({ table, restaurantId }: Props) {
         quantity: item.quantity,
         variant: item.variant ? { id: item.variant.id } : null,
         addons: item.addons.map((addon) => ({ id: addon.id })),
-      }))
+      }));
 
       const response = await fetch("/api/qr/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          table,
+          tableToken,
           cart: sanitizedCart,
           customerNote: customerNote.trim(),
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
-      if (!response.ok || !data.success || !data.orderId || !data.trackingToken) {
-        setErrorMessage(data.error || "Order failed. Please try again.")
-        return
+      if (
+        !response.ok ||
+        !data.success ||
+        !data.orderId ||
+        !data.trackingToken
+      ) {
+        setErrorMessage(data.error || "Order failed. Please try again.");
+        return;
       }
 
-      clearRestaurantCart(restaurantId)
-      setCustomerNote("")
+      clearRestaurantCart(restaurantId);
+      setCustomerNote("");
 
       const params = new URLSearchParams({
         orderId: data.orderId,
         trackingToken: data.trackingToken,
-      })
+      });
 
-      router.push(`/qr/table/${encodeURIComponent(table)}/success?${params.toString()}`)
+      router.push(
+  `/qr/table/${tableToken}/success?${params.toString()}`
+)
     } catch (error) {
-      console.error(error)
-      setErrorMessage("Something went wrong. Please try again.")
+      console.error(error);
+      setErrorMessage("Something went wrong. Please try again.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   if (!hasHydrated) {
     return (
       <div className="mx-auto mt-6 max-w-5xl px-4">
         <div className="h-28 animate-pulse rounded-[28px] border border-white/[0.08] bg-white/[0.03]" />
       </div>
-    )
+    );
   }
 
   return (
     <div className="mx-auto max-w-5xl px-3 pb-36 pt-4 sm:px-4">
       <div className="mb-5 flex items-center justify-between gap-3">
         <Link
-          href={`/qr/table/${encodeURIComponent(table)}`}
+          href={`/qr/table/${tableToken}`}
           className="inline-flex h-10 items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.025] px-3 text-xs font-black uppercase tracking-[0.12em] text-[var(--color-text-muted)] transition hover:border-[var(--color-border-gold)] hover:text-[var(--color-gold)]"
         >
           <ArrowLeft className="size-4" />
@@ -495,7 +517,7 @@ export default function QRCartClient({ table, restaurantId }: Props) {
           </p>
 
           <Link
-            href={`/qr/table/${encodeURIComponent(table)}`}
+            href={`/qr/table/${tableToken}`}
             className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--color-gold)] px-6 text-xs font-black uppercase tracking-[0.14em] text-[var(--color-bg)]"
           >
             Browse Menu
@@ -526,11 +548,13 @@ export default function QRCartClient({ table, restaurantId }: Props) {
                   <div>
                     <p className="font-black text-red-200">
                       {unavailableCartItems.length} item
-                      {unavailableCartItems.length > 1 ? "s are" : " is"} unavailable
+                      {unavailableCartItems.length > 1 ? "s are" : " is"}{" "}
+                      unavailable
                     </p>
                     <p className="mt-1 text-sm leading-5 text-red-200/75">
                       Remove unavailable item
-                      {unavailableCartItems.length > 1 ? "s" : ""} to place your order.
+                      {unavailableCartItems.length > 1 ? "s" : ""} to place your
+                      order.
                     </p>
                   </div>
                 </div>
@@ -545,28 +569,30 @@ export default function QRCartClient({ table, restaurantId }: Props) {
 
             <div className="space-y-2.5">
               {restaurantCart.map((item, index) => {
-                const liveItem = liveItems[item.id]
-                const { subCategory, mainCategory } = getItemCategories(liveItem)
+                const liveItem = liveItems[item.id];
+                const { subCategory, mainCategory } =
+                  getItemCategories(liveItem);
 
-                const subAvailable = isCategoryAvailable(subCategory)
-                const mainAvailable = isCategoryAvailable(mainCategory)
+                const subAvailable = isCategoryAvailable(subCategory);
+                const mainAvailable = isCategoryAvailable(mainCategory);
 
                 const availabilityText = !mainAvailable
                   ? getAvailabilityText(mainCategory)
                   : !subAvailable
                     ? getAvailabilityText(subCategory)
-                    : null
+                    : null;
 
                 const isUnavailable =
                   !liveItem ||
                   !liveItem.is_available ||
                   liveItem.is_archived ||
                   !subAvailable ||
-                  !mainAvailable
+                  !mainAvailable;
 
-                const currentName = liveItem?.name || item.name
-                const currentImage = liveItem?.image ?? item.image
-                const hasCustomization = !!item.variant || item.addons.length > 0
+                const currentName = liveItem?.name || item.name;
+                const currentImage = liveItem?.image ?? item.image;
+                const hasCustomization =
+                  !!item.variant || item.addons.length > 0;
 
                 return (
                   <article
@@ -584,7 +610,9 @@ export default function QRCartClient({ table, restaurantId }: Props) {
                             isUnavailable ? "grayscale opacity-50" : ""
                           }`}
                         />
-                        {isUnavailable && <div className="absolute inset-0 bg-black/40" />}
+                        {isUnavailable && (
+                          <div className="absolute inset-0 bg-black/40" />
+                        )}
                       </div>
 
                       <div className="min-w-0">
@@ -650,7 +678,7 @@ export default function QRCartClient({ table, restaurantId }: Props) {
                               ? "This item was removed from the menu"
                               : !liveItem.is_available || liveItem.is_archived
                                 ? "Out of stock"
-                                : availabilityText ?? "Not available now"}
+                                : (availabilityText ?? "Not available now")}
                           </div>
                         )}
 
@@ -673,11 +701,11 @@ export default function QRCartClient({ table, restaurantId }: Props) {
                               disabled={isUnavailable}
                               onClick={() => {
                                 if (!hasCustomizationOptions(liveItem)) {
-                                  increaseQuantity(item.cartKey)
-                                  return
+                                  increaseQuantity(item.cartKey);
+                                  return;
                                 }
 
-                                setRepeatTarget(item.cartKey)
+                                setRepeatTarget(item.cartKey);
                               }}
                               className="grid size-8 place-items-center rounded-xl bg-[var(--color-gold)] text-[var(--color-bg)] disabled:opacity-40"
                             >
@@ -697,7 +725,7 @@ export default function QRCartClient({ table, restaurantId }: Props) {
                       </div>
                     </div>
                   </article>
-                )
+                );
               })}
             </div>
           </section>
@@ -824,8 +852,8 @@ export default function QRCartClient({ table, restaurantId }: Props) {
               <button
                 type="button"
                 onClick={() => {
-                  increaseQuantity(repeatTarget)
-                  setRepeatTarget(null)
+                  increaseQuantity(repeatTarget);
+                  setRepeatTarget(null);
                 }}
                 className="inline-flex h-12 w-full items-center justify-center rounded-2xl border border-[var(--color-border-gold)] bg-[var(--color-gold)]/10 text-xs font-black uppercase tracking-[0.14em] text-[var(--color-gold)]"
               >
@@ -836,16 +864,16 @@ export default function QRCartClient({ table, restaurantId }: Props) {
                 type="button"
                 onClick={() => {
                   const cartItem = restaurantCart.find(
-                    (x) => x.cartKey === repeatTarget
-                  )
+                    (x) => x.cartKey === repeatTarget,
+                  );
 
-                  if (!cartItem) return
+                  if (!cartItem) return;
 
-                  const liveItem = liveItems[cartItem.id]
-                  if (!liveItem) return
+                  const liveItem = liveItems[cartItem.id];
+                  if (!liveItem) return;
 
-                  setRepeatTarget(null)
-                  openCustomizeSheet(liveItem)
+                  setRepeatTarget(null);
+                  openCustomizeSheet(liveItem);
                 }}
                 className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[var(--color-gold)] text-xs font-black uppercase tracking-[0.14em] text-[var(--color-bg)]"
               >
@@ -868,29 +896,29 @@ export default function QRCartClient({ table, restaurantId }: Props) {
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/75 px-3 backdrop-blur-sm">
           <div className="mb-3 max-h-[88vh] w-full max-w-xl overflow-hidden rounded-[30px] border border-[var(--color-border)] bg-[var(--color-bg)] shadow-[0_24px_90px_rgba(0,0,0,0.6)]">
             {(() => {
-              const variants = getActiveVariants(customizingItem)
+              const variants = getActiveVariants(customizingItem);
               const selectedVariant =
                 variants.find(
-                  (variant) => variant.id === sheetSelection.variantId
+                  (variant) => variant.id === sheetSelection.variantId,
                 ) ??
                 variants[0] ??
-                null
+                null;
 
-              const addons = getActiveAddons(selectedVariant)
-              const selectedAddonIds = sheetSelection.addonIds.filter((addonId) =>
-                addons.some((addon) => addon.id === addonId)
-              )
+              const addons = getActiveAddons(selectedVariant);
+              const selectedAddonIds = sheetSelection.addonIds.filter(
+                (addonId) => addons.some((addon) => addon.id === addonId),
+              );
 
               const selectedAddons = addons.filter((addon) =>
-                selectedAddonIds.includes(addon.id)
-              )
+                selectedAddonIds.includes(addon.id),
+              );
 
-              const itemPrice = selectedVariant?.price ?? customizingItem.price
+              const itemPrice = selectedVariant?.price ?? customizingItem.price;
               const addonTotal = selectedAddons.reduce(
                 (sum, addon) => sum + addon.price,
-                0
-              )
-              const finalPrice = itemPrice + addonTotal
+                0,
+              );
+              const finalPrice = itemPrice + addonTotal;
 
               return (
                 <>
@@ -899,7 +927,8 @@ export default function QRCartClient({ table, restaurantId }: Props) {
                       <div className="size-16 shrink-0 overflow-hidden rounded-2xl bg-black/30">
                         <img
                           src={
-                            customizingItem.image ?? "/images/restaurant-hero.png"
+                            customizingItem.image ??
+                            "/images/restaurant-hero.png"
                           }
                           alt={customizingItem.name}
                           className="h-full w-full object-cover"
@@ -950,7 +979,7 @@ export default function QRCartClient({ table, restaurantId }: Props) {
 
                         <div className="space-y-2">
                           {variants.map((variant) => {
-                            const active = selectedVariant?.id === variant.id
+                            const active = selectedVariant?.id === variant.id;
 
                             return (
                               <button
@@ -985,7 +1014,7 @@ export default function QRCartClient({ table, restaurantId }: Props) {
                                   {active && <Check className="size-4" />}
                                 </span>
                               </button>
-                            )
+                            );
                           })}
                         </div>
                       </div>
@@ -1008,7 +1037,7 @@ export default function QRCartClient({ table, restaurantId }: Props) {
 
                         <div className="space-y-2">
                           {addons.map((addon) => {
-                            const active = selectedAddonIds.includes(addon.id)
+                            const active = selectedAddonIds.includes(addon.id);
 
                             return (
                               <button
@@ -1016,14 +1045,18 @@ export default function QRCartClient({ table, restaurantId }: Props) {
                                 type="button"
                                 onClick={() =>
                                   setSheetSelection((prev) => {
-                                    const exists = prev.addonIds.includes(addon.id)
+                                    const exists = prev.addonIds.includes(
+                                      addon.id,
+                                    );
 
                                     return {
                                       ...prev,
                                       addonIds: exists
-                                        ? prev.addonIds.filter((id) => id !== addon.id)
+                                        ? prev.addonIds.filter(
+                                            (id) => id !== addon.id,
+                                          )
                                         : [...prev.addonIds, addon.id],
-                                    }
+                                    };
                                   })
                                 }
                                 className={`flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left ${
@@ -1049,7 +1082,7 @@ export default function QRCartClient({ table, restaurantId }: Props) {
                                   {active && <Check className="size-4" />}
                                 </span>
                               </button>
-                            )
+                            );
                           })}
                         </div>
                       </div>
@@ -1066,12 +1099,11 @@ export default function QRCartClient({ table, restaurantId }: Props) {
                     </button>
                   </div>
                 </>
-              )
+              );
             })()}
           </div>
         </div>
       )}
-
     </div>
-  )
+  );
 }

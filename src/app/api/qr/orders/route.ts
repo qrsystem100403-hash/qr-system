@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
+import { createNotification } from "@/lib/createNotification"
+import { NOTIFICATION_TYPES } from "@/lib/notification-types"
+import { cookies } from "next/headers"
 
 const MAX_ITEM_QUANTITY = 20
 const MAX_TOTAL_QUANTITY = 100
@@ -28,7 +31,7 @@ const cartItemSchema = z.object({
 })
 
 const orderSchema = z.object({
-  table: z.string().trim().min(1).max(20),
+  tableToken: z.string().min(20).max(100),
   cart: z.array(cartItemSchema).min(1).max(50),
   customerNote: z.string().trim().max(300).optional(),
 })
@@ -127,9 +130,7 @@ function getAvailabilityMessage(category: MenuCategory | null | undefined) {
   )}`
 }
 
-function normalizeTableName(value: string) {
-  return decodeURIComponent(value).trim().replace(/\s+/g, "-")
-}
+
 
 function getClientIp(request: Request) {
   const forwardedFor = request.headers.get("x-forwarded-for")
@@ -181,7 +182,11 @@ export async function POST(request: Request) {
       )
     }
 
-    const { table, cart, customerNote } = parsed.data
+    const {
+  tableToken,
+  cart,
+  customerNote,
+} = parsed.data
     const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0)
 
     if (totalQuantity > MAX_TOTAL_QUANTITY) {
@@ -191,10 +196,89 @@ export async function POST(request: Request) {
       )
     }
 
-    const normalizedTable = normalizeTableName(table)
     const cleanedCustomerNote = customerNote || null
     const clientIp = getClientIp(request)
 
+    
+
+    
+
+    const { data: restaurantTable, error: tableError } = await supabaseAdmin
+      .from("restaurant_tables")
+.select(`
+  id,
+  name,
+  is_active,
+  qr_token,
+  current_session_token,
+  session_expires_at
+`)
+.eq(
+  "restaurant_id",
+  restaurant.id
+)
+.eq(
+  "qr_token",
+  tableToken
+)
+.single()
+
+    if (tableError || !restaurantTable) {
+      return NextResponse.json(
+        { success: false, error: "Invalid table" },
+        { status: 400 }
+      )
+    }
+
+    if (!restaurantTable.is_active) {
+      return NextResponse.json(
+        { success: false, error: "This table is not accepting orders" },
+        { status: 400 }
+      )
+    }
+
+
+const sessionToken =
+  (await cookies()).get("qr_session")?.value
+
+if (!sessionToken) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Session expired",
+    },
+    { status: 403 }
+  )
+}
+
+if (
+  restaurantTable.current_session_token !==
+  sessionToken
+) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Session expired",
+    },
+    { status: 403 }
+  )
+}
+
+if (
+  restaurantTable.session_expires_at &&
+  new Date(
+    restaurantTable.session_expires_at
+  ) < new Date()
+) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Session expired",
+    },
+    { status: 403 }
+  )
+}
+    
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
 
     const { count: recentOrderCount, error: recentOrderError } =
@@ -202,7 +286,10 @@ export async function POST(request: Request) {
         .from("orders")
         .select("id", { count: "exact", head: true })
         .eq("restaurant_id", restaurant.id)
-        .eq("table_name", normalizedTable)
+        .eq(
+  "table_id",
+  restaurantTable.id
+)
         .gte("created_at", fiveMinutesAgo)
 
     if (recentOrderError) {
@@ -218,30 +305,9 @@ export async function POST(request: Request) {
 
     console.info("QR ORDER ATTEMPT:", {
       restaurantId: restaurant.id,
-      table: normalizedTable,
+      table: restaurantTable.name,
       clientIp,
     })
-
-    const { data: restaurantTable, error: tableError } = await supabaseAdmin
-      .from("restaurant_tables")
-      .select("id, name, is_active")
-      .eq("restaurant_id", restaurant.id)
-      .ilike("name", normalizedTable)
-      .single()
-
-    if (tableError || !restaurantTable) {
-      return NextResponse.json(
-        { success: false, error: "Invalid table" },
-        { status: 400 }
-      )
-    }
-
-    if (!restaurantTable.is_active) {
-      return NextResponse.json(
-        { success: false, error: "This table is not accepting orders" },
-        { status: 400 }
-      )
-    }
 
     const cartKeys = cart.map((item) => item.cartKey)
     const uniqueCartKeys = Array.from(new Set(cartKeys))
@@ -537,6 +603,21 @@ export async function POST(request: Request) {
 
     createdOrderId = order.id
 
+    await createNotification({
+  restaurantId: restaurant.id,
+
+  type:
+    NOTIFICATION_TYPES.NEW_ORDER,
+
+  title: "New Order",
+
+  message: `${restaurantTable.name} placed an order worth ₹${total}`,
+
+  entityType: "order",
+
+  entityId: order.id,
+})
+
     const orderItems = validatedCart.map((item) => ({
       order_id: order.id,
       menu_item_id: item.menuItemId,
@@ -591,20 +672,37 @@ export async function POST(request: Request) {
   }
 }
 
-await supabaseAdmin
-  .from("restaurant_tables")
-  .update({
-    status: "occupied",
-    last_activity_at: new Date().toISOString(),
-  })
-  .eq("id", restaurantTable.id)
+if (
+  restaurant.table_workflow_mode !==
+  "expert"
+) {
+  await supabaseAdmin
+    .from("restaurant_tables")
+    .update({
+      status: "occupied",
+
+      last_activity_at:
+        new Date().toISOString(),
+
+      session_expires_at:
+        new Date(
+          Date.now() +
+            90 * 60 * 1000
+        ).toISOString(),
+    })
+    .eq(
+      "id",
+      restaurantTable.id
+    )
+}
 
 createdOrderId = null
 
 return NextResponse.json({
   success: true,
   orderId: order.id,
-  trackingToken: order.tracking_token,
+  trackingToken:
+    order.tracking_token,
 })
   } catch (error) {
     console.error("QR ORDER ERROR:", error)

@@ -3,34 +3,42 @@ import {
   MapPin,
   PackageCheck,
   Phone,
-  Table2,
   User,
-  ChefHat,
-ShieldCheck,
-CheckCircle2,
 } from "lucide-react"
+
 import type { Order } from "./order-types"
+
 import {
   formatOrderTime,
   getOrderType,
   shortOrderId,
   statusStyle,
 } from "./order-utils"
+
 import OrderStatusAction from "./OrderStatusAction"
 
 type Props = {
   order: Order | null
+  workflowMode: string
 }
 
-export default function OrderDetailsPanel({ order }: Props) {
+export default function OrderDetailsPanel({
+  order,
+  workflowMode,
+}: Props) {
   if (!order) {
     return (
-      <aside className="hidden min-h-0 overflow-hidden rounded-2xl border border-[#E4DED3] bg-white shadow-sm dark:border-[#2A2F35] dark:bg-[#171A1F] xl:flex xl:flex-col">
-        <div className="grid h-full place-items-center p-8 text-center">
+      <aside className="hidden xl:flex xl:flex-col rounded-3xl border border-[#E4DED3] bg-white dark:border-[#2A2F35] dark:bg-[#171A1F]">
+        <div className="flex h-full items-center justify-center p-10 text-center">
           <div>
-            <PackageCheck className="mx-auto size-10 text-[#98A2B3]" />
-            <p className="mt-3 font-black text-[#111827] dark:text-[#E7E9EC]">
-              Select an order
+            <PackageCheck className="mx-auto size-12 text-[#98A2B3]" />
+
+            <h3 className="mt-4 text-xl font-bold text-[#111827] dark:text-[#E7E9EC]">
+              Select an Order
+            </h3>
+
+            <p className="mt-2 text-sm text-[#667085] dark:text-[#AAB2BD]">
+              Choose an order from the queue
             </p>
           </div>
         </div>
@@ -39,20 +47,34 @@ export default function OrderDetailsPanel({ order }: Props) {
   }
 
   return (
-    <aside className="hidden min-h-0 overflow-hidden rounded-2xl border border-[#E4DED3] bg-white shadow-sm dark:border-[#2A2F35] dark:bg-[#171A1F] xl:flex xl:flex-col">
-      <div className="border-b border-[#E4DED3] p-5 dark:border-[#2A2F35]">
+    <aside className="hidden xl:flex xl:flex-col overflow-hidden rounded-3xl border border-[#E4DED3] bg-white dark:border-[#2A2F35] dark:bg-[#171A1F]">
+      {/* HEADER */}
+      <div className="border-b border-[#E4DED3] p-6 dark:border-[#2A2F35]">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-black text-[#111827] dark:text-[#E7E9EC]">
-              Order #{shortOrderId(order)}
+            <h2 className="font-mono text-4xl font-semibold text-[#111827] dark:text-[#E7E9EC]">
+              {order.table_name || "ONLINE"}
             </h2>
-            <p className="mt-2 text-sm capitalize text-[#667085] dark:text-[#AAB2BD]">
-              {getOrderType(order)}
+
+            <p className="mt-2 font-mono text-sm text-[#98A2B3]">
+              #{shortOrderId(order)}
             </p>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-[#667085] dark:text-[#AAB2BD]">
+              <span>{getOrderType(order)}</span>
+
+              <span>•</span>
+
+              <span>
+                {formatOrderTime(
+                  order.created_at
+                )}
+              </span>
+            </div>
           </div>
 
           <span
-            className={`rounded-lg border px-3 py-1 text-[10px] font-black uppercase ${statusStyle(
+            className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold uppercase ${statusStyle(
               order.order_status
             )}`}
           >
@@ -60,148 +82,220 @@ export default function OrderDetailsPanel({ order }: Props) {
           </span>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-          {order.table_name && (
-            <p className="flex items-center gap-2 text-[#667085] dark:text-[#AAB2BD]">
-              <Table2 className="size-4" />
-              {order.table_name}
+        {/* CUSTOMER CARD */}
+        {(order.customer_name ||
+          order.customer_phone ||
+          order.address) && (
+          <div className="mt-6 rounded-2xl bg-[#F7F8FA] p-4 dark:bg-[#20242A]">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#98A2B3]">
+              Customer
             </p>
-          )}
 
-          <p className="flex items-center gap-2 text-[#667085] dark:text-[#AAB2BD]">
-            <Clock3 className="size-4" />
-            {formatOrderTime(order.created_at)}
-          </p>
+            <div className="space-y-3">
+              {order.customer_name && (
+                <div className="flex items-center gap-3 text-sm">
+                  <User className="size-4 text-[#98A2B3]" />
+                  <span>
+                    {order.customer_name}
+                  </span>
+                </div>
+              )}
 
-          {order.customer_name && (
-            <p className="flex items-center gap-2 text-[#667085] dark:text-[#AAB2BD]">
-              <User className="size-4" />
-              {order.customer_name}
-            </p>
-          )}
+              {order.customer_phone && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Phone className="size-4 text-[#98A2B3]" />
+                  <span>
+                    {order.customer_phone}
+                  </span>
+                </div>
+              )}
 
-          {order.customer_phone && (
-            <p className="flex items-center gap-2 text-[#667085] dark:text-[#AAB2BD]">
-              <Phone className="size-4" />
-              {order.customer_phone}
-            </p>
-          )}
-        </div>
+              {order.address && (
+                <div className="flex items-start gap-3 text-sm">
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-[#98A2B3]" />
+                  <span>
+                    {order.address}
+                  </span>
+                </div>
+              )}
 
-        {order.address && (
-          <p className="mt-3 flex gap-2 rounded-xl bg-[#FCFAF6] p-3 text-sm text-[#667085] dark:bg-[#20242A] dark:text-[#AAB2BD]">
-            <MapPin className="mt-0.5 size-4 shrink-0" />
-            {order.address}
-          </p>
+              <div className="flex items-center gap-3 text-sm">
+                <Clock3 className="size-4 text-[#98A2B3]" />
+                <span>
+                  {formatOrderTime(
+                    order.created_at
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-5">
-        <p className="mb-4 font-black text-[#111827] dark:text-[#E7E9EC]">
-          Items
+      {/* BODY */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <p className="mb-5 text-xs font-semibold uppercase tracking-[0.18em] text-[#98A2B3]">
+          Order Items
         </p>
 
         <div className="space-y-4">
           {order.order_items.map((item) => (
             <div
               key={item.id}
-              className="grid grid-cols-[34px_1fr_auto] gap-3"
+              className="rounded-2xl border border-[#EEF0F3] p-4 dark:border-[#2A2F35]"
             >
-              <div className="grid size-8 place-items-center rounded-lg border border-[#E4DED3] text-sm font-black dark:border-[#2A2F35]">
-                {item.qty}
+              <div className="flex gap-3">
+                <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#F7F8FA] font-bold dark:bg-[#20242A]">
+                  {item.qty}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-semibold text-[#111827] dark:text-[#E7E9EC]">
+                      {item.item_name ??
+                        "Unknown Item"}
+                    </p>
+
+                    <p className="shrink-0 font-semibold">
+                      ₹
+                      {item.item_price *
+                        item.qty}
+                    </p>
+                  </div>
+
+                  {item.variant_name && (
+                    <p className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]">
+                      {item.variant_name}
+                    </p>
+                  )}
+
+                  {item.order_item_addons.map(
+                    (addon) => (
+                      <p
+                        key={addon.id}
+                        className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]"
+                      >
+                        +{" "}
+                        {
+                          addon.addon_name
+                        }
+                      </p>
+                    )
+                  )}
+                </div>
               </div>
-
-              <div>
-                <p className="font-black text-[#111827] dark:text-[#E7E9EC]">
-                  {item.item_name ?? "Unknown item"}
-                </p>
-
-                {item.variant_name && (
-                  <p className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]">
-                    {item.variant_name}
-                  </p>
-                )}
-
-                {item.order_item_addons.map((addon) => (
-                  <p
-                    key={addon.id}
-                    className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]"
-                  >
-                    + {addon.addon_name}
-                  </p>
-                ))}
-              </div>
-
-              <p className="font-black text-[#111827] dark:text-[#E7E9EC]">
-                ₹{item.item_price * item.qty}
-              </p>
             </div>
           ))}
         </div>
 
-        <div className="my-5 border-t border-[#E4DED3] dark:border-[#2A2F35]" />
-
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm text-[#667085] dark:text-[#AAB2BD]">
-            <span>Subtotal</span>
-            <span>₹{order.total}</span>
-          </div>
-
-          <div className="flex justify-between text-xl font-black text-[#111827] dark:text-[#E7E9EC]">
-            <span>Total</span>
-            <span className="text-[#2F7D57] dark:text-[#7BC99A]">
-              ₹{order.total}
-            </span>
-          </div>
-        </div>
-
+        {/* NOTE */}
         {order.customer_note && (
-          <div className="mt-5 rounded-2xl bg-[#FCFAF6] p-4 dark:bg-[#20242A]">
-            <p className="font-black text-[#111827] dark:text-[#E7E9EC]">
+          <div className="mt-6 rounded-2xl bg-[#FCFAF6] p-4 dark:bg-[#20242A]">
+            <p className="font-semibold text-[#111827] dark:text-[#E7E9EC]">
               Customer Note
             </p>
+
             <p className="mt-2 text-sm text-[#667085] dark:text-[#AAB2BD]">
               {order.customer_note}
             </p>
           </div>
         )}
 
+        {/* CANCEL REASON */}
         {order.cancel_reason && (
-          <div className="mt-5 rounded-2xl bg-[#FDECEC] p-4 text-[#B42318] dark:bg-[#2A1A1A] dark:text-[#FCA5A5]">
-            <p className="font-black">Cancel Reason</p>
-            <p className="mt-2 text-sm">{order.cancel_reason}</p>
+          <div className="mt-6 rounded-2xl bg-[#FDECEC] p-4 dark:bg-[#2A1A1A]">
+            <p className="font-semibold text-[#B42318] dark:text-[#FCA5A5]">
+              Cancel Reason
+            </p>
+
+            <p className="mt-2 text-sm text-[#B42318] dark:text-[#FCA5A5]">
+              {order.cancel_reason}
+            </p>
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 border-t border-[#E4DED3] p-5 dark:border-[#2A2F35]">
-  <OrderStatusAction
-    orderId={order.id}
-    currentStatus={order.order_status}
-    nextStatus="preparing"
-    label="Start Preparing"
-    variant="orange"
-    icon="chef"
-  />
+      {/* BILL */}
+      <div className="border-t border-[#E4DED3] bg-[#FCFAF6] p-6 dark:border-[#2A2F35] dark:bg-[#15181D]">
+        <div className="space-y-3">
+          <div className="flex justify-between text-sm text-[#667085] dark:text-[#AAB2BD]">
+            <span>Subtotal</span>
+            <span>₹{order.total}</span>
+          </div>
 
-  <OrderStatusAction
-    orderId={order.id}
-    currentStatus={order.order_status}
-    nextStatus="ready"
-    label="Mark Ready"
-    variant="green"
-    icon="ready"
-  />
+          <div className="flex justify-between text-sm text-[#667085] dark:text-[#AAB2BD]">
+            <span>Restaurant Charges</span>
+            <span>₹0</span>
+          </div>
 
-  <OrderStatusAction
-    orderId={order.id}
-    currentStatus={order.order_status}
-    nextStatus="served"
-    label="Complete"
-    variant="outline"
-    icon="complete"
-  />
-</div>
+          <div className="flex justify-between text-sm text-[#667085] dark:text-[#AAB2BD]">
+            <span>GST</span>
+            <span>₹0</span>
+          </div>
+
+          <div className="border-t border-[#E4DED3] pt-3 dark:border-[#2A2F35]" />
+
+          <div className="flex justify-between text-xl font-bold">
+            <span>Total</span>
+
+            <span className="font-mono text-[#2F7D57] dark:text-[#7BC99A]">
+              ₹{order.total}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          {order.order_status ===
+            "pending" && (
+            <p className="text-center text-sm text-[#667085]">
+              Accept order from queue
+              first
+            </p>
+          )}
+
+          {workflowMode ===
+            "simple" &&
+            order.order_status ===
+              "preparing" && (
+              <OrderStatusAction
+                orderId={order.id}
+                currentStatus="preparing"
+                nextStatus="served"
+                label="Complete Order"
+                variant="green"
+                icon="complete"
+              />
+            )}
+
+          {workflowMode ===
+            "advanced" &&
+            order.order_status ===
+              "preparing" && (
+              <OrderStatusAction
+                orderId={order.id}
+                currentStatus="preparing"
+                nextStatus="ready"
+                label="Mark Ready"
+                variant="green"
+                icon="ready"
+              />
+            )}
+
+          {workflowMode ===
+            "advanced" &&
+            order.order_status ===
+              "ready" && (
+              <OrderStatusAction
+                orderId={order.id}
+                currentStatus="ready"
+                nextStatus="served"
+                label="Complete Order"
+                variant="outline"
+                icon="complete"
+              />
+            )}
+        </div>
+      </div>
     </aside>
   )
 }

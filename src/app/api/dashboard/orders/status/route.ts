@@ -2,23 +2,28 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
 
-const ALLOWED_ORDER_STATUS_ROLES = ["owner", "manager", "staff", "kitchen"] as const
+import type { OrderStatus } from "@/lib/orders/statuses"
+import { ORDER_STATUSES } from "@/lib/orders/statuses"
+
+import {
+  SIMPLE_TRANSITIONS,
+  ADVANCED_TRANSITIONS,
+} from "@/lib/orders/transitions"
+
+
+import { ROLES } from "@/lib/auth/roles"
 
 const schema = z.object({
   orderId: z.string().uuid(),
-  status: z.enum(["preparing", "ready", "served", "cancelled"]),
+  status: z.string(),
   cancelReason: z.string().trim().max(200).optional(),
 })
 
-type OrderStatus = "pending" | "preparing" | "ready" | "served" | "cancelled"
-
-const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
-  pending: ["preparing", "cancelled"],
-  preparing: ["ready", "served", "cancelled"],
-  ready: ["served", "cancelled"],
-  served: [],
-  cancelled: [],
-}
+const ALLOWED_ORDER_STATUS_ROLES = [
+  ROLES.OWNER,
+  ROLES.MANAGER,
+  ROLES.KITCHEN,
+] as const
 
 function canUpdateOrderStatus(role: string) {
   return ALLOWED_ORDER_STATUS_ROLES.includes(
@@ -26,17 +31,23 @@ function canUpdateOrderStatus(role: string) {
   )
 }
 
-function isOrderStatus(value: unknown): value is OrderStatus {
-  return (
-    value === "pending" ||
-    value === "preparing" ||
-    value === "ready" ||
-    value === "served" ||
-    value === "cancelled"
-  )
+
+
+function isOrderStatus(
+  value: unknown
+): value is OrderStatus {
+  return Object.values(
+    ORDER_STATUSES
+  ).includes(value as OrderStatus)
 }
 
 export async function PATCH(request: Request) {
+
+  
+
+
+
+
   try {
     const { restaurant, supabase, role } = await requireRestaurantUser()
 
@@ -58,6 +69,15 @@ export async function PATCH(request: Request) {
     }
 
     const { orderId, status, cancelReason } = parsed.data
+    if (!isOrderStatus(status)) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Invalid status",
+    },
+    { status: 400 }
+  )
+}
     const cleanCancelReason = cancelReason ?? ""
 
     if (status === "cancelled" && !cleanCancelReason) {
@@ -95,12 +115,28 @@ export async function PATCH(request: Request) {
       )
     }
 
-    if (!allowedTransitions[currentStatus].includes(status)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid status flow" },
-        { status: 400 }
-      )
-    }
+    const transitions =
+  restaurant.workflow_mode === "advanced"
+    ? ADVANCED_TRANSITIONS
+    : SIMPLE_TRANSITIONS
+
+    const allowedStatuses =
+  transitions[
+    currentStatus as keyof typeof transitions
+  ] as readonly string[] | undefined
+
+if (!allowedStatuses?.includes(status)) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Invalid status flow",
+    },
+    { status: 400 }
+  )
+}
+
+
+
 
     const { data, error } = await supabase
       .from("orders")

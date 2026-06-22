@@ -25,8 +25,9 @@ export async function middleware(request: NextRequest) {
   )
 
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  data: { user },
+  error,
+} = await supabase.auth.getUser()
 
   const pathname = request.nextUrl.pathname
 
@@ -34,9 +35,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard/orders", request.url))
   }
 
-  if (pathname.startsWith("/dashboard") && !user) {
-    return NextResponse.redirect(new URL("/login", request.url))
-  }
+  if (pathname.startsWith("/dashboard") && (!user || error)) {
+  return NextResponse.redirect(
+    new URL("/login", request.url)
+  )
+}
 
   return response
 }

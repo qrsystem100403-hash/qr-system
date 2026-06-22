@@ -167,167 +167,206 @@ export default async function DashboardPage() {
   ]
 
   return (
-    <div className="space-y-5">
-      <section className="relative overflow-hidden rounded-[34px] border border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.014))] p-5 shadow-[0_26px_90px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:p-7">
-        <div className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-[var(--color-gold)]/12 blur-3xl" />
+  <div className="space-y-6">
+    <div>
+      <h1 className="text-3xl font-bold text-[#111827] dark:text-[#E7E9EC]">
+        Dashboard
+      </h1>
 
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border-gold)]/55 bg-[var(--color-gold)]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--color-gold)]">
-              <Store className="size-3.5" />
-              Owner Dashboard
-            </div>
+      <p className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]">
+        Welcome back, {restaurant.name}
+      </p>
+    </div>
 
-            <h1 className="mt-5 font-heading text-5xl font-normal leading-none tracking-[-0.05em] sm:text-6xl">
-              Control Center
-            </h1>
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {stats.map((stat) => {
+        const Icon = stat.icon
 
-            <p className="mt-4 text-sm leading-6 text-[var(--color-text-muted)] sm:text-base">
-              Live overview for{" "}
-              <span className="font-semibold text-[var(--color-text)]">
-                {restaurant.name}
-              </span>
-              . Track orders, revenue, tables and menu actions from one place.
-            </p>
-          </div>
+        return (
+          <Link
+            key={stat.label}
+            href={stat.href}
+            className="
+              rounded-3xl
+              border
+              border-[#E4DED3]
+              bg-white
+              p-5
+              transition
+              hover:bg-[#F7F8FA]
 
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Link
-              href="/dashboard/orders"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--color-gold)] px-5 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-bg)] shadow-[0_18px_38px_rgba(214,182,76,0.16)] transition hover:brightness-110"
-            >
-              View Orders
-              <ArrowRight className="size-4" />
-            </Link>
-
-            <Link
-              href="/dashboard/tables"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-black/20 px-5 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-muted)] transition hover:border-[var(--color-border-gold)]/55 hover:text-[var(--color-gold)]"
-            >
-              QR Tables
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon
-
-          return (
-            <Link
-              key={stat.label}
-              href={stat.href}
-              className="group rounded-[26px] border border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.032),rgba(255,255,255,0.012))] p-4 shadow-[0_14px_45px_rgba(0,0,0,0.16)] transition hover:-translate-y-0.5 hover:border-[var(--color-border-gold)]/40 sm:p-5"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="grid size-10 place-items-center rounded-2xl border border-[var(--color-border-gold)]/30 bg-[var(--color-gold)]/10 text-[var(--color-gold)]">
-                  <Icon className="size-5" strokeWidth={1.8} />
-                </div>
-
-                <ArrowRight className="size-4 text-[var(--color-text-soft)] transition group-hover:translate-x-1 group-hover:text-[var(--color-gold)]" />
+              dark:border-[#2A2F35]
+              dark:bg-[#171A1F]
+              dark:hover:bg-[#20242A]
+            "
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex size-11 items-center justify-center rounded-2xl bg-[#F7F8FA] dark:bg-[#20242A]">
+                <Icon className="size-5" />
               </div>
 
-              <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--color-text-soft)]">
-                {stat.label}
-              </p>
-
-              <p className="mt-2 font-heading text-4xl font-normal leading-none tracking-[-0.04em]">
-                {stat.value}
-              </p>
-
-              <p className="mt-2 text-xs leading-5 text-[var(--color-text-muted)]">
-                {stat.helper}
-              </p>
-            </Link>
-          )
-        })}
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-        <div className="rounded-[30px] border border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.012))] p-5 shadow-[0_18px_55px_rgba(0,0,0,0.18)]">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--color-gold)]">
-                Kitchen Flow
-              </p>
-              <h2 className="mt-2 font-heading text-3xl font-normal tracking-[-0.04em]">
-                Order Pipeline
-              </h2>
+              <ArrowRight className="size-4 text-[#98A2B3]" />
             </div>
 
-            <Link
-              href="/dashboard/orders"
-              className="rounded-full border border-[var(--color-border-gold)]/35 bg-[var(--color-gold)]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-gold)] transition hover:bg-[var(--color-gold)]/15"
-            >
-              Open
-            </Link>
+            <p className="mt-4 text-xs font-medium text-[#667085] dark:text-[#AAB2BD]">
+              {stat.label}
+            </p>
+
+            <p className="mt-2 text-4xl font-black text-[#111827] dark:text-[#E7E9EC]">
+              {stat.value}
+            </p>
+
+            <p className="mt-1 text-xs text-[#98A2B3]">
+              {stat.helper}
+            </p>
+          </Link>
+        )
+      })}
+    </section>
+
+    <section className="rounded-3xl border border-[#E4DED3] bg-white p-6 dark:border-[#2A2F35] dark:bg-[#171A1F]">
+      <div className="mb-5">
+        <h2 className="text-xl font-bold text-[#111827] dark:text-[#E7E9EC]">
+          Order Status
+        </h2>
+
+        <p className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]">
+          Current order pipeline
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <div className="rounded-2xl border border-[#F3C6C2] bg-[#FDECEC] p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-[#B42318]">
+              Pending
+            </span>
+
+            <Clock3 className="size-4 text-[#B42318]" />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {orderFlow.map((item) => {
-              const Icon = item.icon
-
-              return (
-                <div
-                  key={item.label}
-                  className={`rounded-2xl border p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${item.className}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em]">
-                      {item.label}
-                    </p>
-                    <Icon className="size-4" />
-                  </div>
-
-                  <p className="mt-3 font-heading text-4xl font-normal leading-none tracking-[-0.04em]">
-                    {item.value}
-                  </p>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="rounded-[30px] border border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.032),rgba(255,255,255,0.012))] p-5 shadow-[0_18px_55px_rgba(0,0,0,0.18)]">
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--color-gold)]">
-            Quick Actions
+          <p className="mt-3 text-3xl font-black text-[#B42318]">
+            {pendingOrders ?? 0}
           </p>
-
-          <h2 className="mt-2 font-heading text-3xl font-normal tracking-[-0.04em]">
-            Manage Restaurant
-          </h2>
-
-          <div className="mt-5 space-y-2.5">
-            {quickActions.map((action) => {
-              const Icon = action.icon
-
-              return (
-                <Link
-                  key={action.title}
-                  href={action.href}
-                  className="group flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-black/18 p-3.5 transition hover:border-[var(--color-border-gold)]/40 hover:bg-white/[0.025]"
-                >
-                  <div className="grid size-10 shrink-0 place-items-center rounded-2xl border border-[var(--color-border-gold)]/25 bg-[var(--color-gold)]/10 text-[var(--color-gold)]">
-                    <Icon className="size-5" strokeWidth={1.8} />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-heading text-xl font-normal leading-none tracking-[-0.03em] sm:text-2xl">
-                      {action.title}
-                    </h3>
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-text-muted)]">
-                      {action.description}
-                    </p>
-                  </div>
-
-                  <ArrowRight className="size-4 shrink-0 text-[var(--color-text-soft)] transition group-hover:translate-x-1 group-hover:text-[var(--color-gold)]" />
-                </Link>
-              )
-            })}
-          </div>
         </div>
-      </section>
-    </div>
-  )
+
+        <div className="rounded-2xl border border-[#FED7AA] bg-[#FFF4E5] p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-[#C2410C]">
+              Preparing
+            </span>
+
+            <Utensils className="size-4 text-[#C2410C]" />
+          </div>
+
+          <p className="mt-3 text-3xl font-black text-[#C2410C]">
+            {preparingOrders ?? 0}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-[#BFE4CE] bg-[#E7F3EC] p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-[#2F7D57]">
+              Ready
+            </span>
+
+            <CheckCircle2 className="size-4 text-[#2F7D57]" />
+          </div>
+
+          <p className="mt-3 text-3xl font-black text-[#2F7D57]">
+            {readyOrders ?? 0}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-[#E4DED3] bg-[#F7F8FA] p-5 dark:border-[#2A2F35] dark:bg-[#20242A]">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-[#475467] dark:text-[#AAB2BD]">
+              Cancelled
+            </span>
+
+            <XCircle className="size-4 text-[#475467]" />
+          </div>
+
+          <p className="mt-3 text-3xl font-black text-[#475467] dark:text-[#E7E9EC]">
+            {cancelledToday}
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section className="rounded-3xl border border-[#E4DED3] bg-white p-6 dark:border-[#2A2F35] dark:bg-[#171A1F]">
+      <div className="mb-5">
+        <h2 className="text-xl font-bold text-[#111827] dark:text-[#E7E9EC]">
+          Quick Access
+        </h2>
+
+        <p className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]">
+          Navigate to important sections
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Link
+          href="/dashboard/orders"
+          className="rounded-2xl border border-[#E4DED3] p-5 transition hover:bg-[#F7F8FA] dark:border-[#2A2F35] dark:hover:bg-[#20242A]"
+        >
+          <ReceiptText className="size-6" />
+
+          <h3 className="mt-3 font-semibold">
+            Orders
+          </h3>
+
+          <p className="mt-1 text-sm text-[#667085]">
+            Manage live orders
+          </p>
+        </Link>
+
+        <Link
+          href="/dashboard/menu"
+          className="rounded-2xl border border-[#E4DED3] p-5 transition hover:bg-[#F7F8FA] dark:border-[#2A2F35] dark:hover:bg-[#20242A]"
+        >
+          <Utensils className="size-6" />
+
+          <h3 className="mt-3 font-semibold">
+            Menu
+          </h3>
+
+          <p className="mt-1 text-sm text-[#667085]">
+            Manage food items
+          </p>
+        </Link>
+
+        <Link
+          href="/dashboard/tables"
+          className="rounded-2xl border border-[#E4DED3] p-5 transition hover:bg-[#F7F8FA] dark:border-[#2A2F35] dark:hover:bg-[#20242A]"
+        >
+          <Table2 className="size-6" />
+
+          <h3 className="mt-3 font-semibold">
+            Tables
+          </h3>
+
+          <p className="mt-1 text-sm text-[#667085]">
+            Manage QR tables
+          </p>
+        </Link>
+
+        <Link
+          href="/dashboard/operations"
+          className="rounded-2xl border border-[#E4DED3] p-5 transition hover:bg-[#F7F8FA] dark:border-[#2A2F35] dark:hover:bg-[#20242A]"
+        >
+          <LayoutDashboard className="size-6" />
+
+          <h3 className="mt-3 font-semibold">
+            Operations
+          </h3>
+
+          <p className="mt-1 text-sm text-[#667085]">
+            Handle service requests
+          </p>
+        </Link>
+      </div>
+    </section>
+  </div>
+)
 }

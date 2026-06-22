@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
+import crypto from "crypto";
 
 const ALLOWED_TABLE_ROLES = ["owner", "manager"] as const
 
@@ -25,8 +26,9 @@ export async function GET() {
     const { data, error } = await supabase
       .from("restaurant_tables")
       .select(
-  "id, name, is_active, status, last_activity_at, created_at"
+  "id, name, qr_token, is_active, status, last_activity_at, created_at"
 )
+
       .eq("restaurant_id", restaurant.id)
       .order("created_at", { ascending: true })
 
@@ -39,7 +41,22 @@ export async function GET() {
       )
     }
 
-    return NextResponse.json({ success: true, tables: data ?? [] })
+    console.log("RESTAURANT:", {
+  workflow_mode:
+    restaurant.workflow_mode,
+
+  table_workflow_mode:
+    restaurant.table_workflow_mode,
+})
+
+    return NextResponse.json({
+  success: true,
+  tables: data ?? [],
+
+  tableWorkflowMode:
+    restaurant.table_workflow_mode ??
+    "simple",
+})
   } catch (error) {
     console.error("TABLES GET ERROR:", error)
 
@@ -76,14 +93,16 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from("restaurant_tables")
       .insert({
-        restaurant_id: restaurant.id,
-        name,
-        is_active: true,
-      })
+  restaurant_id: restaurant.id,
+  name,
+  is_active: true,
+  qr_token: crypto.randomBytes(16).toString("hex"),
+})
       .select(
-  "id, name, is_active, status, last_activity_at, created_at"
+  "id, name, qr_token, is_active, status, last_activity_at, created_at"
 )
-      .single()
+.single()
+      
 
     if (error) {
       console.error("SUPABASE TABLE INSERT ERROR:", error)

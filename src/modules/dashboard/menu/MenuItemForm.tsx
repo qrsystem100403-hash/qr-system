@@ -191,207 +191,321 @@ export default function MenuItemForm({ item, categories }: Props) {
 
   if (!categories.length) {
     return (
-      <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-4">
-        <div className="flex gap-3">
-          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-red-300" />
-          <div>
-            <p className="font-semibold text-red-100">No subcategories found</p>
-            <p className="mt-1 text-sm leading-6 text-red-200/80">
-              Create menu subcategories first before adding items.
-            </p>
-          </div>
-        </div>
+  <div
+    className="
+      rounded-3xl
+      border
+      border-red-200
+      bg-white
+      p-6
+      shadow-sm
+      dark:border-red-900/40
+      dark:bg-[#171A1F]
+    "
+  >
+    <div className="flex gap-4">
+      <div
+        className="
+          flex
+          size-12
+          shrink-0
+          items-center
+          justify-center
+          rounded-2xl
+          bg-red-50
+          text-red-600
+          dark:bg-red-950/30
+          dark:text-red-400
+        "
+      >
+        <AlertTriangle className="size-5" />
       </div>
-    );
+
+      <div>
+        <h2 className="font-semibold text-[#111827] dark:text-[#E7E9EC]">
+          No Subcategories Found
+        </h2>
+
+        <p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#AAB2BD]">
+          You need at least one active subcategory before creating menu
+          items. Create a category and subcategory first, then return
+          here to add items.
+        </p>
+      </div>
+    </div>
+  </div>
+);
   }
 
   return (
-    <form onSubmit={submit} className="pb-24">
-      {errorMessage && (
-        <div className="mb-4 rounded-2xl border border-red-500/25 bg-red-500/10 p-4 text-sm leading-6 text-red-200">
-          {errorMessage}
-        </div>
-      )}
+  <form onSubmit={submit} className="pb-28">
+    {errorMessage && (
+      <div className="mb-5 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+        {errorMessage}
+      </div>
+    )}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-4">
-          <FormField label="Item Name">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Paneer Butter Masala"
-              className="h-12 w-full rounded-2xl border border-[var(--color-border)] bg-black/35 px-4 text-sm text-[var(--color-text)] outline-none transition placeholder:text-[var(--color-text-soft)] focus:border-[var(--color-border-gold)]"
-            />
-          </FormField>
+    <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      {/* LEFT */}
+      <div className="space-y-6">
+        <div className="rounded-3xl border border-[#E4DED3] bg-white p-6 shadow-sm dark:border-[#2A2F35] dark:bg-[#171A1F]">
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-[#111827] dark:text-[#E7E9EC]">
+              Basic Information
+            </h2>
 
-          <FormField label="Subcategory">
-            <div className="relative">
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                className="h-12 w-full appearance-none rounded-2xl border border-[var(--color-border)] bg-black/35 px-4 pr-10 text-sm text-[var(--color-text)] outline-none transition focus:border-[var(--color-border-gold)]"
-              >
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.parent?.name
-                      ? `${category.parent.name} → ${category.name}`
-                      : category.name}
-                  </option>
-                ))}
-              </select>
-
-              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[var(--color-text-soft)]" />
-            </div>
-
-            {selectedCategory && (
-              <p className="mt-2 text-xs text-[var(--color-text-soft)]">
-                Selected:{" "}
-                <span className="text-[var(--color-gold)]">
-                  {selectedCategory.parent?.name
-                    ? `${selectedCategory.parent.name} → ${selectedCategory.name}`
-                    : selectedCategory.name}
-                </span>
-              </p>
-            )}
-          </FormField>
-
-          <FormField label="Price">
-            <div className="flex h-12 items-center rounded-2xl border border-[var(--color-border)] bg-black/35 px-4 transition focus-within:border-[var(--color-border-gold)]">
-              <span className="mr-2 text-sm font-semibold text-[var(--color-gold)]">
-                ₹
-              </span>
-              <input
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                type="number"
-                min="1"
-                inputMode="numeric"
-                placeholder="199"
-                className="h-full min-w-0 flex-1 bg-transparent text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-soft)]"
-              />
-            </div>
-          </FormField>
-
-          <FormField label="Search Tags">
-            <input
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="paneer, spicy, gravy"
-              className="h-12 w-full rounded-2xl border border-[var(--color-border)] bg-black/35 px-4 text-sm text-[var(--color-text)] outline-none transition placeholder:text-[var(--color-text-soft)] focus:border-[var(--color-border-gold)]"
-            />
-
-            <p className="mt-2 text-xs leading-5 text-[var(--color-text-soft)]">
-              Separate with commas. Helps customers search items faster.
+            <p className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]">
+              Item details shown to customers.
             </p>
-          </FormField>
+          </div>
 
-          <label className="flex min-h-[58px] items-center justify-between gap-4 rounded-2xl border border-[var(--color-border)] bg-black/25 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-[var(--color-text)]">
-                Available on QR menu
+          <div className="space-y-5">
+            <FormField label="Item Name">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Paneer Butter Masala"
+                className="
+                  h-12
+                  w-full
+                  rounded-2xl
+                  border
+                  border-[#E4DED3]
+                  bg-white
+                  px-4
+                  text-sm
+                  text-[#111827]
+                  outline-none
+                  transition
+                  focus:border-[#2F7D57]
+                  dark:border-[#2A2F35]
+                  dark:bg-[#20242A]
+                  dark:text-[#E7E9EC]
+                "
+              />
+            </FormField>
+
+            <FormField label="Subcategory">
+              <div className="relative">
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  className="
+                    h-12
+                    w-full
+                    appearance-none
+                    rounded-2xl
+                    border
+                    border-[#E4DED3]
+                    bg-white
+                    px-4
+                    pr-10
+                    text-sm
+                    text-[#111827]
+                    outline-none
+                    transition
+                    focus:border-[#2F7D57]
+                    dark:border-[#2A2F35]
+                    dark:bg-[#20242A]
+                    dark:text-[#E7E9EC]
+                  "
+                >
+                  {categories.map((category) => (
+                    <option
+                      key={category.id}
+                      value={category.id}
+                    >
+                      {category.parent?.name
+                        ? `${category.parent.name} → ${category.name}`
+                        : category.name}
+                    </option>
+                  ))}
+                </select>
+
+                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[#98A2B3]" />
+              </div>
+
+              {selectedCategory && (
+                <p className="mt-2 text-xs text-[#667085] dark:text-[#AAB2BD]">
+                  Selected:{" "}
+                  <span className="font-medium text-[#2F7D57] dark:text-[#7BC99A]">
+                    {selectedCategory.parent?.name
+                      ? `${selectedCategory.parent.name} → ${selectedCategory.name}`
+                      : selectedCategory.name}
+                  </span>
+                </p>
+              )}
+            </FormField>
+
+            <FormField label="Price">
+              <div className="flex h-12 items-center rounded-2xl border border-[#E4DED3] bg-white px-4 focus-within:border-[#2F7D57] dark:border-[#2A2F35] dark:bg-[#20242A]">
+                <span className="mr-2 font-semibold text-[#2F7D57] dark:text-[#7BC99A]">
+                  ₹
+                </span>
+
+                <input
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  type="number"
+                  min="1"
+                  placeholder="199"
+                  className="
+                    h-full
+                    flex-1
+                    bg-transparent
+                    text-sm
+                    text-[#111827]
+                    outline-none
+                    dark:text-[#E7E9EC]
+                  "
+                />
+              </div>
+            </FormField>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-[#E4DED3] bg-white p-6 shadow-sm dark:border-[#2A2F35] dark:bg-[#171A1F]">
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-[#111827] dark:text-[#E7E9EC]">
+              Search & Visibility
+            </h2>
+
+            <p className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]">
+              Improve discoverability and stock control.
+            </p>
+          </div>
+
+          <div className="space-y-5">
+            <FormField label="Search Tags">
+              <input
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="paneer, spicy, gravy"
+                className="
+                  h-12
+                  w-full
+                  rounded-2xl
+                  border
+                  border-[#E4DED3]
+                  bg-white
+                  px-4
+                  text-sm
+                  text-[#111827]
+                  outline-none
+                  transition
+                  focus:border-[#2F7D57]
+                  dark:border-[#2A2F35]
+                  dark:bg-[#20242A]
+                  dark:text-[#E7E9EC]
+                "
+              />
+
+              <p className="mt-2 text-xs text-[#667085] dark:text-[#AAB2BD]">
+                Separate tags using commas.
               </p>
-              <p className="mt-1 text-xs text-[var(--color-text-soft)]">
-                Turn off if item is out of stock.
-              </p>
+            </FormField>
+
+            <div className="rounded-2xl border border-[#E4DED3] p-4 dark:border-[#2A2F35]">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium text-[#111827] dark:text-[#E7E9EC]">
+                    Item Availability
+                  </p>
+
+                  <p className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]">
+                    Customers can order this item.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAvailable(!isAvailable)}
+                  className={`relative h-7 w-12 rounded-full transition ${
+                    isAvailable
+                      ? "bg-[#2F7D57]"
+                      : "bg-[#D0D5DD] dark:bg-[#39414A]"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 size-5 rounded-full bg-white transition-all ${
+                      isAvailable ? "left-6" : "left-1"
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT */}
+      <div className="space-y-6 xl:sticky xl:top-5 xl:self-start">
+        <div className="rounded-3xl border border-[#E4DED3] bg-white p-5 shadow-sm dark:border-[#2A2F35] dark:bg-[#171A1F]">
+          <h2 className="mb-5 text-lg font-semibold text-[#111827] dark:text-[#E7E9EC]">
+            Item Image
+          </h2>
+
+          <div className="overflow-hidden rounded-3xl border border-[#E4DED3] dark:border-[#2A2F35]">
+            {image ? (
+              <div className="relative">
+                <img
+                  src={image}
+                  alt="Preview"
+                  className="h-72 w-full object-cover"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImage("");
+                    setImagePublicId("");
+                  }}
+                  className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-black/70 text-white"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex h-72 flex-col items-center justify-center bg-[#F7F8FA] dark:bg-[#20242A]">
+                <ImagePlus className="size-10 text-[#98A2B3]" />
+
+                <p className="mt-3 text-sm font-medium text-[#667085] dark:text-[#AAB2BD]">
+                  Upload Item Image
+                </p>
+              </div>
+            )}
+          </div>
+
+          <label className="mt-4 flex h-12 cursor-pointer items-center justify-center rounded-2xl bg-[#2F7D57] text-sm font-semibold text-white">
+            {uploadingImage ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin" />
+                Uploading...
+              </span>
+            ) : (
+              "Choose Image"
+            )}
 
             <input
-              type="checkbox"
-              checked={isAvailable}
-              onChange={(e) => setIsAvailable(e.target.checked)}
-              className="size-5 accent-[var(--color-gold)]"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={uploadingImage || loading || deleting}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadImage(file);
+              }}
             />
           </label>
         </div>
 
-        <div className="lg:sticky lg:top-5 lg:self-start">
-          <div className="rounded-[24px] border border-[var(--color-border)] bg-black/25 p-3">
-            <div className="relative overflow-hidden rounded-[20px] border border-[var(--color-border)] bg-black/40">
-              {image ? (
-                <>
-                  <img
-                    src={image}
-                    alt="Menu item preview"
-                    className="h-56 w-full object-cover"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImage("");
-                      setImagePublicId("");
-                    }}
-                    disabled={uploadingImage || loading || deleting}
-                    className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-black/70 text-white backdrop-blur-md"
-                    aria-label="Remove image"
-                  >
-                    <X className="size-4" />
-                  </button>
-                </>
-              ) : (
-                <div className="flex h-56 flex-col items-center justify-center px-5 text-center">
-                  <div className="grid size-12 place-items-center rounded-full bg-[var(--color-gold)]/10 text-[var(--color-gold)]">
-                    <ImagePlus className="size-5" />
-                  </div>
-                  <p className="mt-3 text-sm font-semibold text-[var(--color-text)]">
-                    Upload item image
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-[var(--color-text-soft)]">
-                    Use a clear food photo. Square or landscape works best.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <label className="mt-3 flex h-12 cursor-pointer items-center justify-center rounded-2xl border border-[var(--color-border)] bg-[var(--color-gold)]/10 px-4 text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--color-gold)] transition hover:border-[var(--color-border-gold)]">
-              {uploadingImage ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="size-4 animate-spin" />
-                  Uploading
-                </span>
-              ) : (
-                "Choose Image"
-              )}
-
-              <input
-                type="file"
-                accept="image/*"
-                disabled={uploadingImage || loading || deleting}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) uploadImage(file);
-                }}
-                className="hidden"
-              />
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-border)] bg-[var(--color-bg)]/95 p-3 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-3xl gap-2">
-          {isEdit && (
-            <button
-              type="button"
-              onClick={deleteItem}
-              disabled={loading || uploadingImage || deleting}
-              className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-500/30 bg-red-500/10 text-red-300 disabled:opacity-50"
-              aria-label="Delete item"
-            >
-              {deleting ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Trash2 className="size-4" />
-              )}
-            </button>
-          )}
-
+        <div className="rounded-3xl border border-[#E4DED3] bg-white p-5 shadow-sm dark:border-[#2A2F35] dark:bg-[#171A1F]">
           <button
             type="submit"
             disabled={!canSubmit}
-            className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-[var(--color-gold)] px-5 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--color-bg)] shadow-[0_18px_45px_rgba(211,181,74,0.18)] disabled:pointer-events-none disabled:opacity-50"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2F7D57] font-semibold text-white disabled:opacity-50"
           >
-            {loading || uploadingImage ? (
+            {loading ? (
               <Loader2 className="size-4 animate-spin" />
             ) : isEdit ? (
               <Save className="size-4" />
@@ -399,18 +513,44 @@ export default function MenuItemForm({ item, categories }: Props) {
               <Check className="size-4" />
             )}
 
-            {uploadingImage
-              ? "Uploading..."
-              : loading
+            {loading
               ? "Saving..."
               : isEdit
               ? "Update Item"
               : "Create Item"}
           </button>
         </div>
+
+        {isEdit && (
+          <div className="rounded-3xl border border-red-200 bg-red-50 p-5 dark:border-red-900/40 dark:bg-red-950/20">
+            <h3 className="font-semibold text-red-700 dark:text-red-300">
+              Danger Zone
+            </h3>
+
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+              Deleting this item cannot be undone.
+            </p>
+
+            <button
+              type="button"
+              onClick={deleteItem}
+              disabled={deleting}
+              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-red-600 text-white"
+            >
+              {deleting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
+
+              Delete Item
+            </button>
+          </div>
+        )}
       </div>
-    </form>
-  );
+    </div>
+  </form>
+);
 }
 
 function FormField({
@@ -421,11 +561,23 @@ function FormField({
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-soft)]">
-        {label}
-      </label>
-      {children}
-    </div>
-  );
+  <div>
+    <label
+      className="
+        mb-2
+        block
+        text-[10px]
+        font-bold
+        uppercase
+        tracking-[0.2em]
+        text-[#667085]
+        dark:text-[#98A2B3]
+      "
+    >
+      {label}
+    </label>
+
+    {children}
+  </div>
+);
 }

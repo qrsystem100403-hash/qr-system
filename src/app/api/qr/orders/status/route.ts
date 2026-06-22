@@ -8,12 +8,10 @@ import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
 const statusQuerySchema = z.object({
   orderId: z.string().uuid(),
   trackingToken: z.string().trim().min(4).max(32),
-  table: z.string().trim().min(1).max(20),
+  tableToken: z.string().min(20).max(100),
 })
 
-function normalizeTableName(value: string) {
-  return decodeURIComponent(value).trim().replace(/\s+/g, "-")
-}
+
 
 export async function GET(request: Request) {
   try {
@@ -31,7 +29,7 @@ export async function GET(request: Request) {
     const parsed = statusQuerySchema.safeParse({
       orderId: searchParams.get("orderId"),
       trackingToken: searchParams.get("trackingToken"),
-      table: searchParams.get("table"),
+      tableToken: searchParams.get("tableToken"),
     })
 
     if (!parsed.success) {
@@ -41,15 +39,18 @@ export async function GET(request: Request) {
       )
     }
 
-    const { orderId, trackingToken, table } = parsed.data
-    const normalizedTable = normalizeTableName(table)
+    const {
+  orderId,
+  trackingToken,
+  tableToken,
+} = parsed.data
 
     const { data: restaurantTable } = await supabaseAdmin
   .from("restaurant_tables")
-  .select("id")
-  .eq("restaurant_id", restaurant.id)
-  .ilike("name", normalizedTable)
-  .single()
+.select("id")
+.eq("restaurant_id", restaurant.id)
+.eq("qr_token", tableToken)
+.single()
 
 if (!restaurantTable) {
   return NextResponse.json(

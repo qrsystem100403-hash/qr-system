@@ -19,7 +19,11 @@ const ALLOWED_MENU_ROLES = ["owner", "manager"] as const
 
 const schema = z.object({
   name: z.string().trim().min(1).max(100),
-  price: z.number().positive().max(99999),
+  price: z
+  .number()
+  .positive()
+  .max(99999)
+  .multipleOf(0.01),
   categoryId: z.string().uuid(),
   image: z.string().url().nullable().optional(),
   imagePublicId: z.string().trim().max(255).nullable().optional(),

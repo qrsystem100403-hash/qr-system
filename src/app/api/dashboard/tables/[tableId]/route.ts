@@ -83,7 +83,9 @@ export async function PATCH(request: Request, { params }: Params) {
       .update(updates)
       .eq("id", tableId)
       .eq("restaurant_id", restaurant.id)
-      .select("id, name, is_active, created_at")
+      .select(
+  "id, name, qr_token, is_active, status, last_activity_at, created_at"
+)
       .single()
 
     if (error) {

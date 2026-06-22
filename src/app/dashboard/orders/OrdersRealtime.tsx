@@ -143,7 +143,7 @@ export default function OrdersRealtime({ restaurantId }: Props) {
     refreshTimerRef.current = setTimeout(() => {
       router.refresh()
       setRefreshing(false)
-    }, 300)
+    })
   }, [router])
 
   const showNotice = useCallback(() => {
@@ -169,17 +169,28 @@ export default function OrdersRealtime({ restaurantId }: Props) {
     const channel = supabaseBrowser
       .channel(`orders-realtime-${restaurantId}`)
       .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "orders",
-          filter: `restaurant_id=eq.${restaurantId}`,
-        },
-        () => {
-          handleNewOrder()
-        }
-      )
+  "postgres_changes",
+  {
+    event: "INSERT",
+    schema: "public",
+    table: "orders",
+  },
+  (payload) => {
+    const order =
+      payload.new as {
+        restaurant_id: string
+      }
+
+    if (
+      order.restaurant_id !==
+      restaurantId
+    ) {
+      return
+    }
+
+    handleNewOrder()
+  }
+)
       .on(
         "postgres_changes",
         {
@@ -188,17 +199,32 @@ export default function OrdersRealtime({ restaurantId }: Props) {
           table: "orders",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        () => {
-          refreshOrders()
-        }
+        (payload) => {
+    const order =
+      payload.new as {
+        restaurant_id: string
+      }
+
+    if (
+      order.restaurant_id !==
+      restaurantId
+    ) {
+      return
+    }
+
+    refreshOrders()
+  }
       )
       .subscribe((status) => {
-        setConnecting(status !== "SUBSCRIBED")
+  console.log(
+    "ORDERS REALTIME STATUS:",
+    status
+  )
 
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          setErrorMessage("Live order connection issue. Use Refresh if needed.")
-        }
-      })
+  setConnecting(
+    status !== "SUBSCRIBED"
+  )
+})
 
     const handleFocus = () => refreshOrders()
 

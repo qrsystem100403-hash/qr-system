@@ -7,6 +7,7 @@ import Link from "next/link"
 type RestaurantTable = {
   id: string
   name: string
+  qr_token: string
   is_active: boolean
 }
 
@@ -15,12 +16,12 @@ type Props = {
   tables: RestaurantTable[]
 }
 
-function getQRUrl(tableName: string) {
+function getQRUrl(tableToken: string) {
   if (typeof window === "undefined") {
-    return `/qr/table/${encodeURIComponent(tableName)}`
+    return `/qr/table/${tableToken}`
   }
 
-  return `${window.location.origin}/qr/table/${encodeURIComponent(tableName)}`
+  return `${window.location.origin}/qr/table/${tableToken}`
 }
 
 export default function PrintQRCodesClient({ restaurantName, tables }: Props) {
@@ -96,7 +97,7 @@ export default function PrintQRCodesClient({ restaurantName, tables }: Props) {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 print:grid-cols-2 print:gap-0">
           {tables.map((table) => {
-            const qrUrl = getQRUrl(table.name)
+            const qrUrl = getQRUrl(table.qr_token)
 
             return (
               <section

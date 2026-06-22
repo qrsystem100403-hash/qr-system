@@ -1,8 +1,12 @@
 export type StoredQROrder = {
   orderId: string
   trackingToken: string
+
   table: string
+  tableToken: string
+
   restaurantId: string
+
   createdAt: string
   expiresAt: string
 }
@@ -19,6 +23,7 @@ function isValidStoredOrder(order: StoredQROrder) {
     order.orderId &&
       order.trackingToken &&
       order.table &&
+      order.tableToken &&
       order.restaurantId &&
       order.createdAt &&
       order.expiresAt
@@ -56,7 +61,10 @@ export function getStoredQROrders(): StoredQROrder[] {
 export function saveQROrder(order: {
   orderId: string
   trackingToken: string
+
   table: string
+  tableToken: string
+
   restaurantId: string
 }) {
   if (!isBrowser()) return
@@ -105,10 +113,16 @@ export function extendQROrderFor24Hours(orderId: string) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(nextOrders))
 }
 
-export function getStoredQROrderCount(table?: string) {
+export function getStoredQROrderCount(
+  tableToken?: string
+) {
   const orders = getStoredQROrders()
 
-  if (!table) return orders.length
+  if (!tableToken) return orders.length
 
-  return orders.filter((order) => order.table === table).length
+  return orders.filter(
+  (order) =>
+    order.tableToken ===
+    tableToken
+).length
 }

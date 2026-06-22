@@ -1,285 +1,407 @@
+import Link from "next/link"
 import {
-  AlertTriangle,
+  Banknote,
   CheckCircle2,
-  Clock,
-  Hash,
-  ReceiptIndianRupee,
-  StickyNote,
-  Table2,
+  XCircle,
+  ReceiptText,
 } from "lucide-react"
+
 import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
 
-type OrderItemAddon = {
-  id: string
-  addon_name: string
-  addon_price: number
+import OrderQueue from "../_components/OrderQueue"
+import OrderDetailsPanel from "../_components/OrderDetailsPanel"
+
+import type {
+  Order,
+  StatusTabValue,
+} from "../_components/order-types"
+
+type HistoryTab =
+  | "all"
+  | "served"
+  | "cancelled"
+
+type Props = {
+  searchParams?: Promise<{
+    status?: HistoryTab
+    selected?: string
+    q?: string
+  }>
 }
 
-type OrderItem = {
-  id: string
-  qty: number
-  item_price: number
-  item_name: string | null
-  variant_name: string | null
-  menu_item_id: string
-  order_item_addons: OrderItemAddon[]
-}
-
-type Order = {
-  id: string
-  tracking_token: string | null
-  table_name: string
-  total: number
-  payment_status: string
-  order_status: string
-  customer_note: string | null
-  created_at: string
-  order_items: OrderItem[]
-}
-
-const formatOrderTime = (date: string) =>
-  new Intl.DateTimeFormat("en-IN", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(new Date(date))
-
-function shortId(order: Order) {
+function isValidStatus(
+  value: unknown
+): value is HistoryTab {
   return (
-    order.tracking_token?.slice(0, 8).toUpperCase() ??
-    order.id.slice(0, 8).toUpperCase()
+    value === "all" ||
+    value === "served" ||
+    value === "cancelled"
   )
 }
 
-export default async function HistoryPage() {
-  const { restaurant, supabase } = await requireRestaurantUser()
+export default async function OrderHistoryPage({
+  searchParams,
+}: Props) {
+  const { restaurant, supabase } =
+    await requireRestaurantUser()
 
-  const { data, error } = await supabase
-    .from("orders")
-    .select(`
+  const params =
+    await searchParams
+
+  const activeStatus: HistoryTab =
+    isValidStatus(params?.status)
+      ? params.status
+      : "all"
+
+  const selectedId =
+    params?.selected
+
+  const searchQuery =
+    params?.q?.trim() ?? ""
+
+  const baseSelect = `
+    id,
+    order_type,
+    table_name,
+    customer_name,
+    customer_phone,
+    address,
+    tracking_token,
+    total,
+    payment_status,
+    order_status,
+    customer_note,
+    cancel_reason,
+    created_at,
+    order_items (
       id,
-      tracking_token,
-      table_name,
-      total,
-      payment_status,
-      order_status,
-      customer_note,
-      created_at,
-      order_items (
+      qty,
+      item_price,
+      item_name,
+      variant_name,
+      order_item_addons (
         id,
-        qty,
-        item_price,
-        item_name,
-        variant_name,
-        menu_item_id,
-        order_item_addons (
-          id,
-          addon_name,
-          addon_price
-        )
+        addon_name,
+        addon_price
       )
-    `)
-    .eq("restaurant_id", restaurant.id)
-    .eq("order_status", "served")
-    .order("created_at", { ascending: false })
-    .order("id", { referencedTable: "order_items", ascending: true })
+    )
+  `
 
-  const orders = (data ?? []) as Order[]
-
-  const totalRevenue = orders.reduce(
-    (sum, order) => sum + Number(order.total || 0),
-    0
-  )
+  const {
+    data,
+    error,
+  } = await supabase
+    .from("orders")
+    .select(baseSelect)
+    .eq(
+      "restaurant_id",
+      restaurant.id
+    )
+    .in("order_status", [
+      "served",
+      "cancelled",
+    ])
+    .order("created_at", {
+      ascending: false,
+    })
 
   if (error) {
     return (
-      <div className="rounded-xl border border-[#F3C6C2] bg-[#FDECEC] p-4 text-[#B42318]">
-        <div className="flex gap-3">
-          <AlertTriangle className="mt-0.5 size-5 shrink-0" />
-          <div>
-            <p className="font-bold">Failed to load order history</p>
-            <p className="mt-1 text-sm">{error.message}</p>
-          </div>
-        </div>
+      <div className="rounded-3xl border border-[#F3C6C2] bg-[#FDECEC] p-5 text-[#B42318]">
+        {error.message}
       </div>
     )
   }
 
+  const allOrders =
+    (data ?? []) as Order[]
+
+  let orders = allOrders
+
+  if (activeStatus !== "all") {
+    orders = orders.filter(
+      (order) =>
+        order.order_status ===
+        activeStatus
+    )
+  }
+
+  if (searchQuery) {
+    const q =
+      searchQuery.toLowerCase()
+
+    orders = orders.filter(
+      (order) =>
+        order.tracking_token
+          ?.toLowerCase()
+          .includes(q) ||
+        order.table_name
+          ?.toLowerCase()
+          .includes(q) ||
+        order.customer_name
+          ?.toLowerCase()
+          .includes(q) ||
+        order.customer_phone
+          ?.toLowerCase()
+          .includes(q)
+    )
+  }
+
+  const selectedOrder =
+    orders.find(
+      (order) =>
+        order.id === selectedId
+    ) ??
+    orders[0] ??
+    null
+
+  const completedOrders =
+    allOrders.filter(
+      (order) =>
+        order.order_status ===
+        "served"
+    )
+
+  const cancelledOrders =
+    allOrders.filter(
+      (order) =>
+        order.order_status ===
+        "cancelled"
+    )
+
+  const revenue =
+    completedOrders.reduce(
+      (sum, order) =>
+        sum + Number(order.total),
+      0
+    )
+
   return (
-    <>
-      <section className="mb-4 rounded-2xl border border-[#E6E1D8] bg-white p-4 shadow-sm dark:border-[#2A2F35] dark:bg-[#171A1F]">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <section
+      className="
+        grid
+        gap-5
+        min-h-[calc(100vh-118px)]
+        xl:grid-cols-[320px_minmax(520px,1fr)_340px]
+      "
+    >
+      {/* LEFT SIDEBAR */}
+
+      <aside className="hidden xl:flex xl:flex-col">
+        <div className="rounded-3xl border border-[#E4DED3] bg-white p-5 dark:border-[#2A2F35] dark:bg-[#171A1F]">
+
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#0F8A43] dark:text-[#7BC99A]">
-              Completed Orders
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98A2B3]">
+              History
             </p>
 
-            <h2 className="mt-1 text-2xl font-black tracking-tight text-[#111827] dark:text-[#E7E9EC]">
-              Order History
-            </h2>
+            <h1 className="mt-2 text-3xl font-black text-[#111827] dark:text-[#E7E9EC]">
+              Orders
+            </h1>
 
             <p className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]">
-              Served orders for {restaurant.name}.
+              Completed & cancelled orders
             </p>
           </div>
 
-          <div className="rounded-xl border border-[#E6E1D8] bg-[#FCFAF6] px-4 py-3 sm:text-right dark:border-[#2A2F35] dark:bg-[#20242A]">
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#667085] dark:text-[#AAB2BD]">
-              Total Revenue
-            </p>
+          <div className="mt-6 space-y-3">
 
-            <p className="mt-1 text-2xl font-black text-[#0F8A43] dark:text-[#7BC99A]">
-              ₹{totalRevenue}
-            </p>
+            <div className="rounded-2xl bg-[#F7F8FA] p-4 dark:bg-[#20242A]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-[#667085]">
+                    Completed
+                  </p>
 
-            <p className="mt-1 text-xs text-[#98A2B3]">
-              {orders.length} orders
-            </p>
+                  <p className="mt-1 font-mono text-2xl font-bold">
+                    {completedOrders.length}
+                  </p>
+                </div>
+
+                <CheckCircle2 className="size-5 text-[#2F7D57]" />
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-[#F7F8FA] p-4 dark:bg-[#20242A]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-[#667085]">
+                    Cancelled
+                  </p>
+
+                  <p className="mt-1 font-mono text-2xl font-bold">
+                    {cancelledOrders.length}
+                  </p>
+                </div>
+
+                <XCircle className="size-5 text-[#B42318]" />
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-[#F7F8FA] p-4 dark:bg-[#20242A]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-[#667085]">
+                    Revenue
+                  </p>
+
+                  <p className="mt-1 font-mono text-2xl font-bold">
+                    ₹{revenue}
+                  </p>
+                </div>
+
+                <Banknote className="size-5 text-[#2F7D57]" />
+              </div>
+            </div>
+
           </div>
-        </div>
-      </section>
 
-      {!orders.length ? (
-        <div className="rounded-2xl border border-[#E6E1D8] bg-white p-8 text-center shadow-sm dark:border-[#2A2F35] dark:bg-[#171A1F]">
-          <div className="mx-auto grid size-12 place-items-center rounded-full bg-[#E7F3EC] text-[#0F8A43] dark:bg-[#183026] dark:text-[#7BC99A]">
-            <CheckCircle2 className="size-5" />
-          </div>
+          <div className="my-6 h-px bg-[#E4DED3] dark:bg-[#2A2F35]" />
 
-          <h2 className="mt-4 text-2xl font-black text-[#111827] dark:text-[#E7E9EC]">
-            No completed orders
-          </h2>
+          <div className="space-y-2">
 
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#667085] dark:text-[#AAB2BD]">
-            Served orders will appear here.
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {orders.map((order) => (
-            <article
-              key={order.id}
-              className="overflow-hidden rounded-2xl border border-[#E6E1D8] bg-white shadow-sm dark:border-[#2A2F35] dark:bg-[#171A1F]"
+            <Link
+              href="/dashboard/orders/history"
+              className={`flex items-center justify-between rounded-2xl px-4 py-3 transition-all ${
+                activeStatus === "all"
+                  ? "bg-[#E7F3EC] text-[#2F7D57] dark:bg-[#183026] dark:text-[#7BC99A]"
+                  : "hover:bg-[#F7F8FA] dark:hover:bg-[#20242A]"
+              }`}
             >
-              <div className="border-b border-[#EEF0F2] bg-[#FCFAF6] p-4 dark:border-[#2A2F35] dark:bg-[#20242A]">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#0F8A43] dark:text-[#7BC99A]">
-                      Table
-                    </p>
+              <span className="font-medium">
+                All Orders
+              </span>
 
-                    <h2 className="mt-1 truncate text-3xl font-black tracking-tight text-[#111827] dark:text-[#E7E9EC]">
-                      {order.table_name}
-                    </h2>
+              <span className="font-mono">
+                {allOrders.length}
+              </span>
+            </Link>
 
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[#667085] dark:text-[#AAB2BD]">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F3EC] px-2.5 py-1 font-black uppercase text-[#0F8A43] dark:bg-[#183026] dark:text-[#7BC99A]">
-                        <CheckCircle2 className="size-3.5" />
-                        Served
-                      </span>
+            <Link
+              href="/dashboard/orders/history?status=served"
+              className={`flex items-center justify-between rounded-2xl px-4 py-3 transition-all ${
+                activeStatus ===
+                "served"
+                  ? "bg-[#E7F3EC] text-[#2F7D57] dark:bg-[#183026] dark:text-[#7BC99A]"
+                  : "hover:bg-[#F7F8FA] dark:hover:bg-[#20242A]"
+              }`}
+            >
+              <span className="font-medium">
+                Completed
+              </span>
 
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="size-3.5" />
-                        {formatOrderTime(order.created_at)}
-                      </span>
+              <span className="font-mono">
+                {completedOrders.length}
+              </span>
+            </Link>
 
-                      <span className="inline-flex items-center gap-1">
-                        <Hash className="size-3.5" />
-                        {shortId(order)}
-                      </span>
-                    </div>
-                  </div>
+            <Link
+              href="/dashboard/orders/history?status=cancelled"
+              className={`flex items-center justify-between rounded-2xl px-4 py-3 transition-all ${
+                activeStatus ===
+                "cancelled"
+                  ? "bg-[#E7F3EC] text-[#2F7D57] dark:bg-[#183026] dark:text-[#7BC99A]"
+                  : "hover:bg-[#F7F8FA] dark:hover:bg-[#20242A]"
+              }`}
+            >
+              <span className="font-medium">
+                Cancelled
+              </span>
 
-                  <div className="shrink-0 text-right">
-                    <p className="text-2xl font-black text-[#0F8A43] dark:text-[#7BC99A]">
-                      ₹{order.total}
-                    </p>
+              <span className="font-mono">
+                {cancelledOrders.length}
+              </span>
+            </Link>
 
-                    <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#98A2B3]">
-                      Total
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3">
-                <div className="space-y-2">
-                  {order.order_items?.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-xl border border-[#E6E1D8] bg-[#FCFAF6] px-3 py-2.5 dark:border-[#2A2F35] dark:bg-[#20242A]"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-black text-[#111827] dark:text-[#E7E9EC]">
-                            {item.qty} × {item.item_name ?? "Unknown item"}
-                          </p>
-
-                          <div className="mt-1 space-y-1 text-xs leading-5 text-[#667085] dark:text-[#AAB2BD]">
-                            {item.variant_name && (
-                              <p>Size: {item.variant_name}</p>
-                            )}
-
-                            {item.order_item_addons?.length > 0 && (
-                              <p>
-                                Add-ons:{" "}
-                                {item.order_item_addons
-                                  .map(
-                                    (addon) =>
-                                      `${addon.addon_name} +₹${addon.addon_price}`
-                                  )
-                                  .join(", ")}
-                              </p>
-                            )}
-
-                            <p>₹{item.item_price} each</p>
-                          </div>
-                        </div>
-
-                        <p className="shrink-0 text-sm font-black text-[#111827] dark:text-[#E7E9EC]">
-                          ₹{item.item_price * item.qty}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {order.customer_note && (
-                  <div className="mt-3 rounded-xl border border-[#F4D58D] bg-[#FFF8E7] p-3 dark:border-[#5B4620] dark:bg-[#2A2416]">
-                    <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#B7791F] dark:text-[#FACC15]">
-                      <StickyNote className="size-3.5" />
-                      Customer Note
-                    </p>
-
-                    <p className="mt-1 text-sm leading-6 text-[#7A4F01] dark:text-[#FDE68A]">
-                      {order.customer_note}
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#EEF0F2] pt-3 dark:border-[#2A2F35]">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#98A2B3]">
-                      Payment
-                    </p>
-
-                    <p className="mt-1 truncate text-sm capitalize text-[#667085] dark:text-[#AAB2BD]">
-                      {order.payment_status}
-                    </p>
-                  </div>
-
-                  <div className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[#E6E1D8] bg-white px-3 text-xs font-black uppercase tracking-[0.1em] text-[#667085] dark:border-[#2A2F35] dark:bg-[#171A1F] dark:text-[#AAB2BD]">
-                    <ReceiptIndianRupee className="size-4" />
-                    Bill
-                  </div>
-                </div>
-              </div>
-            </article>
-          ))}
+          </div>
         </div>
-      )}
-    </>
+      </aside>
+
+      {/* MOBILE HEADER */}
+
+      <div className="xl:hidden">
+        <div className="rounded-3xl border border-[#E4DED3] bg-white p-5 dark:border-[#2A2F35] dark:bg-[#171A1F]">
+
+          <div className="flex items-center gap-3">
+            <div className="grid size-11 place-items-center rounded-2xl bg-[#E7F3EC] text-[#2F7D57] dark:bg-[#183026] dark:text-[#7BC99A]">
+              <ReceiptText className="size-5" />
+            </div>
+
+            <div>
+              <h1 className="text-xl font-black">
+                Order History
+              </h1>
+
+              <p className="text-sm text-[#667085]">
+                Completed & cancelled
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-2 overflow-x-auto">
+
+            <Link
+              href="/dashboard/orders/history"
+              className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold ${
+                activeStatus === "all"
+                  ? "bg-[#2F7D57] text-white"
+                  : "border border-[#E4DED3]"
+              }`}
+            >
+              All
+            </Link>
+
+            <Link
+              href="/dashboard/orders/history?status=served"
+              className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold ${
+                activeStatus ===
+                "served"
+                  ? "bg-[#2F7D57] text-white"
+                  : "border border-[#E4DED3]"
+              }`}
+            >
+              Completed
+            </Link>
+
+            <Link
+              href="/dashboard/orders/history?status=cancelled"
+              className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold ${
+                activeStatus ===
+                "cancelled"
+                  ? "bg-[#2F7D57] text-white"
+                  : "border border-[#E4DED3]"
+              }`}
+            >
+              Cancelled
+            </Link>
+
+          </div>
+        </div>
+      </div>
+
+      {/* ORDER LIST */}
+
+      <div className="min-w-0">
+        <OrderQueue
+          orders={orders}
+          selectedOrderId={
+            selectedOrder?.id
+          }
+          activeStatus="all"
+          searchQuery={
+            searchQuery
+          }
+        />
+      </div>
+
+      {/* DETAILS */}
+
+      <OrderDetailsPanel
+        order={selectedOrder}
+        workflowMode={
+          restaurant.workflow_mode
+        }
+      />
+    </section>
   )
 }

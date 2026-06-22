@@ -3,8 +3,13 @@
 import { redirect } from "next/navigation"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { resolveRestaurant } from "@/lib/restaurantResolver"
+import {
+  VALID_ROLES,
+  type RestaurantRole,
+  ROLES,
+} from "@/lib/auth/roles"
 
-export type RestaurantRole = "owner" | "staff"
+
 
 export async function requireRestaurantUser() {
   const restaurant = await resolveRestaurant()
@@ -30,24 +35,24 @@ export async function requireRestaurantUser() {
     redirect("/login")
   }
 
-  const role = restaurantUser.role as RestaurantRole
+  const role = restaurantUser.role
 
-  if (role !== "owner" && role !== "staff") {
-    redirect("/login")
-  }
+if (!VALID_ROLES.includes(role as RestaurantRole)) {
+  redirect("/login")
+}
 
   return {
-    restaurant,
-    user,
-    role,
-    supabase,
-  }
+  restaurant,
+  user,
+  role: role as RestaurantRole,
+  supabase,
+}
 }
 
 export async function requireOwnerUser() {
   const session = await requireRestaurantUser()
 
-  if (session.role !== "owner") {
+  if (session.role !== ROLES.OWNER) {
     redirect("/dashboard/orders")
   }
 
