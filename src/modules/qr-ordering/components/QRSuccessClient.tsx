@@ -172,24 +172,24 @@ const progressLabels =
         },
       );
 
-      const data = await response.json();
+     const result = await response.json();
 
-      if (!response.ok || !data.success) {
-        console.error("ORDER STATUS FETCH ERROR:", data.error);
-        setOrder(null);
-        return;
-      }
+if (!response.ok || !result.success) {
+  console.error("ORDER STATUS FETCH ERROR:", result);
+  setOrder(null);
+  return;
+}
 
-      const fetchedOrder = data.order as Order;
+const fetchedOrder = result.data as Order;
 
-      setOrder(fetchedOrder);
+setOrder(fetchedOrder);
 
-      if (
-        fetchedOrder.order_status === "served" ||
-        fetchedOrder.order_status === "cancelled"
-      ) {
-        extendQROrderFor24Hours(fetchedOrder.id);
-      }
+if (
+  fetchedOrder.order_status === "served" ||
+  fetchedOrder.order_status === "cancelled"
+) {
+  extendQROrderFor24Hours(fetchedOrder.id);
+}
     } catch (error) {
       console.error("ORDER STATUS FETCH ERROR:", error);
       setOrder(null);

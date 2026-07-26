@@ -1,7 +1,10 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+
+import { ValidationError } from "@/lib/errors/validationError";
+
+import type { ClockInInput } from "../types";
 import { calculateDistance } from "../utils/calculateDistance";
 import { getAttendanceDate } from "../utils/getAttendanceDate";
-import type { ClockInInput } from "../types";
 
 export async function clockOut(
   supabase: SupabaseClient,
@@ -27,7 +30,7 @@ export async function clockOut(
   }
 
   if (!restaurant) {
-    throw new Error("Restaurant not found.");
+    throw new ValidationError("Restaurant not found.");
   }
 
   if (restaurant.attendance_gps_enabled) {
@@ -35,7 +38,7 @@ export async function clockOut(
       restaurant.attendance_latitude == null ||
       restaurant.attendance_longitude == null
     ) {
-      throw new Error(
+      throw new ValidationError(
         "Restaurant location is not configured.",
       );
     }
@@ -44,10 +47,10 @@ export async function clockOut(
       input.location.accuracy >
       restaurant.attendance_max_accuracy
     ) {
-      throw new Error(
+      throw new ValidationError(
         `GPS accuracy is too low (${Math.round(
           input.location.accuracy,
-        )}m).`,
+        )}m). Please enable High Accuracy location and try again.`,
       );
     }
 
@@ -62,8 +65,8 @@ export async function clockOut(
       distance >
       restaurant.attendance_radius
     ) {
-      throw new Error(
-        `You are ${distance}m away from the restaurant.`,
+      throw new ValidationError(
+        `You are ${distance}m away from the restaurant. Move within ${restaurant.attendance_radius}m to clock out.`,
       );
     }
   }
@@ -73,14 +76,19 @@ export async function clockOut(
     error: staffError,
   } = await supabase
     .from("restaurant_users")
-    .select(
-      "attendance_shift_start, attendance_shift_end",
-    )
+    .select(`
+      attendance_shift_start,
+      attendance_shift_end
+    `)
     .eq("id", input.staffId)
     .single();
 
   if (staffError) {
     throw staffError;
+  }
+
+  if (!staff) {
+    throw new ValidationError("Staff member not found.");
   }
 
   const today = getAttendanceDate();
@@ -91,10 +99,7 @@ export async function clockOut(
   } = await supabase
     .from("attendance_logs")
     .select("*")
-    .eq(
-      "restaurant_id",
-      input.restaurantId,
-    )
+    .eq("restaurant_id", input.restaurantId)
     .eq("staff_id", input.staffId)
     .eq("shift_date", today)
     .single();
@@ -103,14 +108,20 @@ export async function clockOut(
     throw attendanceError;
   }
 
+  if (!attendance) {
+    throw new ValidationError(
+      "Attendance record not found for today.",
+    );
+  }
+
   if (!attendance.clock_in_at) {
-    throw new Error(
+    throw new ValidationError(
       "You have not clocked in today.",
     );
   }
 
   if (attendance.clock_out_at) {
-    throw new Error(
+    throw new ValidationError(
       "You have already clocked out.",
     );
   }
@@ -169,26 +180,13 @@ export async function clockOut(
   } = await supabase
     .from("attendance_logs")
     .update({
-      clock_out_at:
-        now.toISOString(),
-
-      worked_minutes:
-        workedMinutes,
-
-      early_leave_minutes:
-        earlyLeaveMinutes,
-
-      overtime_minutes:
-        overtimeMinutes,
-
-      clock_out_lat:
-        input.location.latitude,
-
-      clock_out_lng:
-        input.location.longitude,
-
-      clock_out_accuracy:
-        input.location.accuracy,
+      clock_out_at: now.toISOString(),
+      worked_minutes: workedMinutes,
+      early_leave_minutes: earlyLeaveMinutes,
+      overtime_minutes: overtimeMinutes,
+      clock_out_lat: input.location.latitude,
+      clock_out_lng: input.location.longitude,
+      clock_out_accuracy: input.location.accuracy,
     })
     .eq("id", attendance.id)
     .select()

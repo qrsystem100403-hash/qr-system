@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function ClockInButton() {
   const router = useRouter();
@@ -35,12 +36,19 @@ export default function ClockInButton() {
             },
           );
 
-          const data = await response.json();
+         const result = await response.json();
 
-          if (!response.ok || !data.success) {
-            alert(data.error ?? "Clock in failed.");
-            return;
-          }
+if (!response.ok || !result.success) {
+  toast.error(
+    result.message ??
+    result.error ??
+    "Clock in failed."
+  );
+  return;
+}
+
+toast.success("Clocked in successfully.");
+router.refresh();
 
           router.refresh();
         } catch {

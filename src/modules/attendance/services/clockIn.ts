@@ -1,7 +1,10 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { calculateDistance } from "../utils/calculateDistance";
+
+import { ValidationError } from "@/lib/errors/validationError";
+
 import type { ClockInInput } from "../types";
-  import { getAttendanceDate } from "../utils/getAttendanceDate";
+import { getAttendanceDate } from "../utils/getAttendanceDate";
+import { calculateDistance } from "../utils/calculateDistance";
 
 export async function clockIn(
   supabase: SupabaseClient,
@@ -28,11 +31,11 @@ export async function clockIn(
   }
 
   if (!restaurant) {
-    throw new Error("Restaurant not found.");
+    throw new ValidationError("Restaurant not found.");
   }
 
   if (!restaurant.attendance_gps_enabled) {
-    throw new Error(
+    throw new ValidationError(
       "GPS attendance is disabled for this restaurant.",
     );
   }
@@ -41,7 +44,7 @@ export async function clockIn(
     restaurant.attendance_latitude == null ||
     restaurant.attendance_longitude == null
   ) {
-    throw new Error(
+    throw new ValidationError(
       "Restaurant attendance location has not been configured.",
     );
   }
@@ -64,11 +67,11 @@ export async function clockIn(
   }
 
   if (!staff) {
-    throw new Error("Staff member not found.");
+    throw new ValidationError("Staff member not found.");
   }
 
   if (!staff.is_active) {
-    throw new Error(
+    throw new ValidationError(
       "Your account is inactive.",
     );
   }
@@ -77,7 +80,7 @@ export async function clockIn(
     input.location.accuracy >
     restaurant.attendance_max_accuracy
   ) {
-    throw new Error(
+    throw new ValidationError(
       `GPS accuracy is too low (${Math.round(
         input.location.accuracy,
       )}m). Please enable High Accuracy location and try again.`,
@@ -95,15 +98,13 @@ export async function clockIn(
     distance >
     restaurant.attendance_radius
   ) {
-    throw new Error(
+    throw new ValidationError(
       `You are ${distance}m away from the restaurant. Move within ${restaurant.attendance_radius}m to clock in.`,
     );
   }
 
-
-const now = new Date();
-
-const today = getAttendanceDate(now);
+  const now = new Date();
+  const today = getAttendanceDate(now);
 
   const {
     data: existingAttendance,
@@ -111,10 +112,7 @@ const today = getAttendanceDate(now);
   } = await supabase
     .from("attendance_logs")
     .select("id")
-    .eq(
-      "restaurant_id",
-      input.restaurantId,
-    )
+    .eq("restaurant_id", input.restaurantId)
     .eq("staff_id", input.staffId)
     .eq("shift_date", today)
     .maybeSingle();
@@ -124,7 +122,7 @@ const today = getAttendanceDate(now);
   }
 
   if (existingAttendance) {
-    throw new Error(
+    throw new ValidationError(
       "You have already clocked in today.",
     );
   }
@@ -138,8 +136,7 @@ const today = getAttendanceDate(now);
       .split(":")
       .map(Number);
 
-  const shiftStart =
-    new Date(now);
+  const shiftStart = new Date(now);
 
   shiftStart.setHours(
     shiftHour,
@@ -148,13 +145,12 @@ const today = getAttendanceDate(now);
     0,
   );
 
-  const allowedClockIn =
-    new Date(
-      shiftStart.getTime() +
-        restaurant.attendance_grace_minutes *
-          60 *
-          1000,
-    );
+  const allowedClockIn = new Date(
+    shiftStart.getTime() +
+      restaurant.attendance_grace_minutes *
+        60 *
+        1000,
+  );
 
   const lateMinutes =
     now > allowedClockIn
@@ -176,40 +172,19 @@ const today = getAttendanceDate(now);
   } = await supabase
     .from("attendance_logs")
     .insert({
-      restaurant_id:
-        input.restaurantId,
-
+      restaurant_id: input.restaurantId,
       staff_id: input.staffId,
-
       shift_date: today,
-
-      clock_in_at:
-        now.toISOString(),
-
+      clock_in_at: now.toISOString(),
       status,
-
       worked_minutes: 0,
-
-      late_minutes:
-        lateMinutes,
-
-      shift_start:
-        staff.attendance_shift_start,
-
-      shift_end:
-        staff.attendance_shift_end,
-
-      clock_in_lat:
-        input.location.latitude,
-
-      clock_in_lng:
-        input.location.longitude,
-
-      clock_in_accuracy:
-        input.location.accuracy,
-
+      late_minutes: lateMinutes,
+      shift_start: staff.attendance_shift_start,
+      shift_end: staff.attendance_shift_end,
+      clock_in_lat: input.location.latitude,
+      clock_in_lng: input.location.longitude,
+      clock_in_accuracy: input.location.accuracy,
       attendance_source: "gps",
-
       device_id: null,
     })
     .select()

@@ -84,24 +84,22 @@ export default function QRMyOrdersClientV2({
         }
       );
 
-      const data: SessionResponse =
-        await response.json();
+      const result = await response.json();
 
-      if (!response.ok || !data.success) {
-        setSession(null);
-        setOrders([]);
-        return;
-      }
+if (!response.ok || !result.success) {
+  setSession(null);
+  setOrders([]);
+  return;
+}
 
-      setSession(data.session);
-      setOrders(data.orders);
+const sessionData = result.data;
 
-      if (
-        data.session.status ===
-        "bill_requested"
-      ) {
-        setBillRequested(true);
-      }
+setSession(sessionData.session ?? null);
+setOrders(sessionData.orders ?? []);
+
+setBillRequested(
+  sessionData.session?.status === "bill_requested"
+);
     } catch (error) {
       console.error(error);
     } finally {
