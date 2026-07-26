@@ -1,7 +1,17 @@
-import { NextResponse } from "next/server"
-import { z } from "zod"
-import { v2 as cloudinary } from "cloudinary"
-import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
+import { z } from "zod";
+import { v2 as cloudinary } from "cloudinary";
+
+import {
+  badRequest,
+  fail,
+  forbidden,
+  notFound,
+  ok,
+} from "@/lib/api";
+
+import { logger } from "@/lib/logger";
+import { requireRestaurantUser } from "@/lib/requireRestaurantUser";
+
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
@@ -44,34 +54,85 @@ function canManageMenu(role: string) {
   return ALLOWED_MENU_ROLES.includes(role as (typeof ALLOWED_MENU_ROLES)[number])
 }
 
-async function safeDeleteCloudinaryImage(publicId: string) {
+async function safeDeleteCloudinaryImage(
+  publicId: string,
+) {
   try {
-    await cloudinary.uploader.destroy(publicId)
+    await cloudinary.uploader.destroy(
+      publicId,
+    );
   } catch (error) {
-    console.error("CLOUDINARY DELETE ERROR:", error)
+    logger.error({
+      message:
+        "Failed to delete Cloudinary image",
+      error,
+      context: {
+        module: "menu",
+        action: "deleteCloudinaryImage",
+        metadata: {
+          publicId,
+        },
+      },
+    });
   }
 }
 
-export async function PATCH(request: Request, { params }: Props) {
+export async function PATCH(
+  request: Request,
+  { params }: Props,
+) {
   try {
-    const { itemId } = await params
-    const { restaurant, supabase, role } = await requireRestaurantUser()
+    const { itemId } = await params;
+
+    const {
+      restaurant,
+      supabase,
+      role,
+      restaurantUser,
+    } = await requireRestaurantUser();
 
     if (!canManageMenu(role)) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      )
+      logger.warn({
+        message:
+          "Unauthorized menu update attempt",
+        context: {
+          module: "menu",
+          action: "updateMenuItem",
+          restaurantId: restaurant.id,
+          userId: restaurantUser.id,
+          metadata: {
+            itemId,
+          },
+        },
+      });
+
+      return forbidden();
     }
 
-    const body = await request.json()
-    const parsed = schema.safeParse(body)
+    const body = await request.json();
+
+    const parsed = schema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: "Invalid menu item data" },
-        { status: 400 }
-      )
+      logger.warn({
+        message:
+          "Invalid menu update payload",
+        context: {
+          module: "menu",
+          action: "updateMenuItem",
+          restaurantId: restaurant.id,
+          userId: restaurantUser.id,
+          metadata: {
+            itemId,
+            issues: parsed.error.flatten(),
+          },
+        },
+      });
+
+      return badRequest(
+        "Invalid menu item data",
+        parsed.error.flatten(),
+      );
     }
 
     const {
@@ -82,49 +143,94 @@ export async function PATCH(request: Request, { params }: Props) {
       imagePublicId,
       isAvailable,
       tag,
-    } = parsed.data
+    } = parsed.data;
 
-    const cleanedTag = Array.from(new Set(tag ?? []))
+    const cleanedTag = Array.from(
+      new Set(tag ?? []),
+    );
 
-    const { data: existingItem, error: existingError } = await supabase
+    const {
+      data: existingItem,
+      error: existingError,
+    } = await supabase
       .from("menu_items")
       .select("id, image_public_id")
       .eq("id", itemId)
-      .eq("restaurant_id", restaurant.id)
-      .eq("is_archived", false)
-      .single()
-
-    if (existingError || !existingItem) {
-      return NextResponse.json(
-        { success: false, error: "Menu item not found" },
-        { status: 404 }
+      .eq(
+        "restaurant_id",
+        restaurant.id,
       )
+      .eq("is_archived", false)
+      .single();
+
+    if (existingError) {
+      logger.error({
+        message:
+          "Failed to fetch menu item",
+        error: existingError,
+        context: {
+          module: "menu",
+          action: "updateMenuItem",
+          restaurantId: restaurant.id,
+          userId: restaurantUser.id,
+          metadata: {
+            itemId,
+          },
+        },
+      });
+
+      return fail(existingError);
     }
 
-    const { data: category, error: categoryError } = await supabase
+    if (!existingItem) {
+      return notFound(
+        "Menu item not found",
+      );
+    }
+
+    const {
+      data: category,
+      error: categoryError,
+    } = await supabase
       .from("menu_categories")
       .select("id, parent_id")
       .eq("id", categoryId)
-      .eq("restaurant_id", restaurant.id)
+      .eq(
+        "restaurant_id",
+        restaurant.id,
+      )
       .eq("is_active", true)
       .not("parent_id", "is", null)
-      .single()
+      .single();
 
     if (categoryError || !category) {
-      return NextResponse.json(
-        { success: false, error: "Invalid subcategory" },
-        { status: 400 }
-      )
+      logger.warn({
+        message:
+          "Invalid menu subcategory",
+        context: {
+          module: "menu",
+          action: "updateMenuItem",
+          restaurantId: restaurant.id,
+          userId: restaurantUser.id,
+          metadata: {
+            categoryId,
+          },
+        },
+      });
+
+      return badRequest(
+        "Invalid subcategory",
+      );
     }
 
     const updatePayload: {
-      name: string
-      price: number
-      category_id: string
-      image: string | null
-      is_available: boolean
-      tag: string[]
-      image_public_id?: string | null
+      name: string;
+      price: number;
+      category_id: string;
+      image: string | null;
+      is_available: boolean;
+      tag: string[];
+      image_public_id?: string | null;
     } = {
       name,
       price,
@@ -132,75 +238,171 @@ export async function PATCH(request: Request, { params }: Props) {
       image: image ?? null,
       is_available: isAvailable,
       tag: cleanedTag,
+    };
+
+    if (
+      imagePublicId !== undefined
+    ) {
+      updatePayload.image_public_id =
+        imagePublicId;
     }
 
-    if (imagePublicId !== undefined) {
-      updatePayload.image_public_id = imagePublicId
-    }
-
-    const { data, error } = await supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from("menu_items")
       .update(updatePayload)
       .eq("id", itemId)
-      .eq("restaurant_id", restaurant.id)
+      .eq(
+        "restaurant_id",
+        restaurant.id,
+      )
       .eq("is_archived", false)
       .select("id")
-      .single()
+      .single();
 
     if (error || !data) {
-      console.error("SUPABASE MENU UPDATE ERROR:", error)
+      logger.error({
+        message:
+          "Failed to update menu item",
+        error,
+        context: {
+          module: "menu",
+          action: "updateMenuItem",
+          restaurantId: restaurant.id,
+          userId: restaurantUser.id,
+          metadata: {
+            itemId,
+          },
+        },
+      });
 
-      return NextResponse.json(
-        { success: false, error: "Failed to update menu item" },
-        { status: 500 }
-      )
+      return fail(error);
     }
 
-    const oldPublicId = existingItem.image_public_id
+    const oldPublicId =
+      existingItem.image_public_id;
 
-    if (oldPublicId && imagePublicId && oldPublicId !== imagePublicId) {
-      await safeDeleteCloudinaryImage(oldPublicId)
+    if (
+      oldPublicId &&
+      imagePublicId &&
+      oldPublicId !== imagePublicId
+    ) {
+      await safeDeleteCloudinaryImage(
+        oldPublicId,
+      );
     }
 
-    return NextResponse.json({ success: true })
+    logger.audit({
+      message:
+        "Menu item updated",
+      context: {
+        module: "menu",
+        action: "updateMenuItem",
+        restaurantId: restaurant.id,
+        userId: restaurantUser.id,
+        metadata: {
+          menuItemId: itemId,
+          categoryId,
+        },
+      },
+    });
+
+    return ok(
+      undefined,
+      "Menu item updated successfully.",
+    );
   } catch (error) {
-    console.error("MENU ITEM UPDATE ERROR:", error)
+    logger.error({
+      message:
+        "Unexpected error while updating menu item",
+      error,
+      context: {
+        module: "menu",
+        action: "updateMenuItem",
+      },
+    });
 
-    return NextResponse.json(
-      { success: false, error: "Failed to update menu item" },
-      { status: 500 }
-    )
+    return fail(error);
   }
 }
 
-export async function DELETE(_request: Request, { params }: Props) {
+export async function DELETE(
+  _request: Request,
+  { params }: Props,
+) {
   try {
-    const { itemId } = await params
-    const { restaurant, supabase, role } = await requireRestaurantUser()
+    const { itemId } = await params;
+
+    const {
+      restaurant,
+      supabase,
+      role,
+      restaurantUser,
+    } = await requireRestaurantUser();
 
     if (!canManageMenu(role)) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      )
+      logger.warn({
+        message:
+          "Unauthorized menu deletion attempt",
+        context: {
+          module: "menu",
+          action: "deleteMenuItem",
+          restaurantId: restaurant.id,
+          userId: restaurantUser.id,
+          metadata: {
+            menuItemId: itemId,
+          },
+        },
+      });
+
+      return forbidden();
     }
 
-    const { data: existingItem, error: existingError } = await supabase
+    const {
+      data: existingItem,
+      error: existingError,
+    } = await supabase
       .from("menu_items")
       .select("id, image_public_id")
       .eq("id", itemId)
-      .eq("restaurant_id", restaurant.id)
-      .eq("is_archived", false)
-      .single()
-
-    if (existingError || !existingItem) {
-      return NextResponse.json(
-        { success: false, error: "Menu item not found" },
-        { status: 404 }
+      .eq(
+        "restaurant_id",
+        restaurant.id,
       )
+      .eq("is_archived", false)
+      .single();
+
+    if (existingError) {
+      logger.error({
+        message:
+          "Failed to fetch menu item for deletion",
+        error: existingError,
+        context: {
+          module: "menu",
+          action: "deleteMenuItem",
+          restaurantId: restaurant.id,
+          userId: restaurantUser.id,
+          metadata: {
+            menuItemId: itemId,
+          },
+        },
+      });
+
+      return fail(existingError);
     }
 
-    const { data, error } = await supabase
+    if (!existingItem) {
+      return notFound(
+        "Menu item not found",
+      );
+    }
+
+    const {
+      data,
+      error,
+    } = await supabase
       .from("menu_items")
       .update({
         is_archived: true,
@@ -209,31 +411,70 @@ export async function DELETE(_request: Request, { params }: Props) {
         image_public_id: null,
       })
       .eq("id", itemId)
-      .eq("restaurant_id", restaurant.id)
+      .eq(
+        "restaurant_id",
+        restaurant.id,
+      )
       .eq("is_archived", false)
       .select("id")
-      .single()
+      .single();
 
     if (error || !data) {
-      console.error("SUPABASE MENU ARCHIVE ERROR:", error)
+      logger.error({
+        message:
+          "Failed to archive menu item",
+        error,
+        context: {
+          module: "menu",
+          action: "deleteMenuItem",
+          restaurantId: restaurant.id,
+          userId: restaurantUser.id,
+          metadata: {
+            menuItemId: itemId,
+          },
+        },
+      });
 
-      return NextResponse.json(
-        { success: false, error: "Failed to delete menu item" },
-        { status: 500 }
-      )
+      return fail(error);
     }
 
-    if (existingItem.image_public_id) {
-      await safeDeleteCloudinaryImage(existingItem.image_public_id)
+    if (
+      existingItem.image_public_id
+    ) {
+      await safeDeleteCloudinaryImage(
+        existingItem.image_public_id,
+      );
     }
 
-    return NextResponse.json({ success: true })
+    logger.audit({
+      message:
+        "Menu item archived",
+      context: {
+        module: "menu",
+        action: "deleteMenuItem",
+        restaurantId: restaurant.id,
+        userId: restaurantUser.id,
+        metadata: {
+          menuItemId: itemId,
+        },
+      },
+    });
+
+    return ok(
+      undefined,
+      "Menu item deleted successfully.",
+    );
   } catch (error) {
-    console.error("MENU ITEM DELETE ERROR:", error)
+    logger.error({
+      message:
+        "Unexpected error while deleting menu item",
+      error,
+      context: {
+        module: "menu",
+        action: "deleteMenuItem",
+      },
+    });
 
-    return NextResponse.json(
-      { success: false, error: "Failed to delete menu item" },
-      { status: 500 }
-    )
+    return fail(error);
   }
 }

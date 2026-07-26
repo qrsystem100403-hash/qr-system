@@ -1,16 +1,27 @@
-import {
-  getRestaurantMenu,
-  getRestaurantMenuCategories,
-} from "../repositories/menuRepository"
+import { MenuRepository } from "../repositories/menuRepository";
+import type { PublicMenu } from "../types/menu";
 
-export async function getMenuService(restaurantId: string) {
-  const [categories, items] = await Promise.all([
-    getRestaurantMenuCategories(restaurantId),
-    getRestaurantMenu(restaurantId),
-  ])
+export class MenuService {
+  constructor(
+    private readonly repository: MenuRepository,
+  ) {}
 
-  return {
-    categories,
-    items,
+  async getPublicMenu(
+    restaurantId: string,
+  ): Promise<PublicMenu> {
+    const [categories, items] = await Promise.all([
+      this.repository.getActiveCategories(
+        restaurantId,
+      ),
+      this.repository.getPublicMenuItems(
+        restaurantId,
+      ),
+    ]);
+
+    return {
+      categories,
+      items,
+    };
   }
 }
+

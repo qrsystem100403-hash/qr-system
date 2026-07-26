@@ -1,49 +1,94 @@
 "use client";
 
-import { QRCodeCanvas } from "qrcode.react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+
 import {
   CheckCircle2,
-  Copy,
-  Download,
-  ExternalLink,
   Loader2,
-  Pencil,
   Plus,
   Printer,
-  QrCode,
   RefreshCw,
-  Trash2,
-  XCircle,
+  Table2,
+  Users,
 } from "lucide-react";
 
-type RestaurantTable = {
-  id: string;
-  name: string;
-  qr_token: string;
-  is_active: boolean;
-  status: string;
-  last_activity_at: string | null;
-  created_at: string;
-};
+import TablesGrid from "./_components/layout/TablesGrid";
+
+import { useDashboardHeader } from "@/app/components/dashboard/header/DashboardHeaderProvider";
+
+import type {
+  RestaurantTable,
+  TableWorkflowMode,
+} from "./_components/table-types";
+import DashboardPageHeader from "@/app/components/dashboard/ui/DashboardPageHeader";
+import DashboardStats from "@/app/components/dashboard/ui/DashboardStats";
+import DashboardToolbar from "@/app/components/dashboard/ui/DashboardToolbar";
+import DashboardSearch from "@/app/components/dashboard/ui/DashboardSearch";
+import DashboardButton from "@/app/components/dashboard/ui/DashboardButton";
+import CreateTableDialog from "./_components/shared/CreateTableDialog";
+import DashboardSelect from "@/app/components/dashboard/ui/DashboardSelect";
+import DashboardBadge from "@/app/components/dashboard/ui/DashboardBadge";
+import DashboardFilterTabs from "@/app/components/dashboard/ui/DashboardFilterTabs";
+
+
 
 export default function TablesPage() {
-  const [tables, setTables] = useState<RestaurantTable[]>([]);
-  const [tableNumber, setTableNumber] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [message, setMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [updatingTableId, setUpdatingTableId] = useState<string | null>(null);
-  const [
+ const [tables, setTables] =
+  useState<RestaurantTable[]>([]);
+
+const [statusFilter, setStatusFilter] =
+  useState("all");
+
+const [loading, setLoading] =
+  useState(true);
+
+const [saving, setSaving] =
+  useState(false);
+
+const [createDialogOpen, setCreateDialogOpen] =
+  useState(false);
+
+const [refreshing, setRefreshing] =
+  useState(false);
+
+const [message, setMessage] =
+  useState("");
+
+const [errorMessage, setErrorMessage] =
+  useState("");
+
+  const [search, setSearch] = useState("");
+
+  const filteredTables = useMemo(() => {
+  const query = search.trim().toLowerCase();
+
+  return tables.filter((table) => {
+    const matchesSearch =
+      table.name.toLowerCase().includes(query);
+
+    const matchesStatus =
+      statusFilter === "all"
+        ? true
+        : statusFilter === "disabled"
+        ? !table.is_active
+        : table.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+}, [tables, search, statusFilter]);
+
+const [
+  updatingTableId,
+  setUpdatingTableId,
+] = useState<string | null>(null);
+
+const [
   tableWorkflowMode,
   setTableWorkflowMode,
-] = useState<
-  "simple" |
-  "advanced" |
-  "expert"
->("simple")
+] =
+  useState<TableWorkflowMode>(
+    "simple"
+  );
 
   const showMessage = (text: string) => {
     setMessage(text);
@@ -69,18 +114,21 @@ export default function TablesPage() {
         cache: "no-store",
       });
 
-      const data = await res.json();
+      const result = await res.json();
 
-      if (!data.success) {
-        showError(data.error || "Failed to load tables");
-        return;
-      }
+console.log(result);
 
-      setTables(data.tables ?? []);
-      setTableWorkflowMode(
-  data.tableWorkflowMode ??
+if (!result.success) {
+  showError(result.error || "Failed to load tables");
+  return;
+}
+
+setTables(result.data?.tables ?? []);
+
+setTableWorkflowMode(
+  result.data?.tableWorkflowMode ??
     "simple"
-)
+);
     } catch (error) {
       console.error("LOAD TABLES ERROR:", error);
       showError("Failed to load tables");
@@ -127,50 +175,41 @@ export default function TablesPage() {
     showMessage("QR downloaded");
   };
 
-  const addTable = async () => {
-    const cleaned = tableNumber.trim();
+const addTable = async (tableNumber: number) => {
+  if (saving) return;
 
-    if (!cleaned || saving) return;
+  const generatedName = `Table-${tableNumber}`;
 
-    const numericValue = Number(cleaned);
+  setSaving(true);
 
-    if (Number.isNaN(numericValue) || numericValue <= 0) {
-      showError("Enter a valid table number");
+  try {
+    const res = await fetch("/api/dashboard/tables", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: generatedName,
+      }),
+    });
+
+    const result = await res.json();
+
+    if (!result.success) {
+      showError(result.error || "Failed to create table");
       return;
     }
 
-    const generatedName = `Table-${numericValue}`;
+    await loadTables();
 
-    setSaving(true);
-
-    try {
-      const res = await fetch("/api/dashboard/tables", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: generatedName,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!data.success) {
-        showError(data.error || "Failed to create table");
-        return;
-      }
-
-      setTables((current) => [...current, data.table]);
-      setTableNumber("");
-      showMessage(`${generatedName} created`);
-    } catch (error) {
-      console.error("ADD TABLE ERROR:", error);
-      showError("Failed to create table");
-    } finally {
-      setSaving(false);
-    }
-  };
+    showMessage(`${generatedName} created`);
+  } catch (error) {
+    console.error("CREATE TABLE ERROR:", error);
+    showError("Failed to create table");
+  } finally {
+    setSaving(false);
+  }
+};
   
 
   
@@ -219,74 +258,75 @@ export default function TablesPage() {
 }
 
   const toggleTable = async (table: RestaurantTable) => {
-    try {
-      const res = await fetch(`/api/dashboard/tables/${table.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          is_active: !table.is_active,
-        }),
-      });
+  try {
+    const res = await fetch(`/api/dashboard/tables/${table.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        is_active: !table.is_active,
+      }),
+    });
 
-      const data = await res.json();
+    const result = await res.json();
 
-      if (!data.success) {
-        showError(data.error || "Failed to update table");
-        return;
-      }
-
-      setTables((current) =>
-        current.map((item) => (item.id === table.id ? data.table : item)),
-      );
-
-      showMessage(
-        table.is_active ? `${table.name} disabled` : `${table.name} enabled`,
-      );
-    } catch (error) {
-      console.error("TOGGLE TABLE ERROR:", error);
-      showError("Failed to update table");
+    if (!result.success) {
+      showError(result.error || "Failed to update table");
+      return;
     }
-  };
+
+    await loadTables();
+
+    showMessage(
+      table.is_active
+        ? `${table.name} disabled`
+        : `${table.name} enabled`
+    );
+  } catch (error) {
+    console.error("TOGGLE TABLE ERROR:", error);
+    showError("Failed to update table");
+  }
+};
 
   const renameTable = async (table: RestaurantTable) => {
-    const currentNumber = table.name.replace("Table-", "");
+  const currentNumber = table.name.replace("Table-", "");
 
-    const nextNumber = prompt("Enter new table number", currentNumber)?.trim();
+  const nextNumber = prompt(
+    "Enter new table number",
+    currentNumber
+  )?.trim();
 
-    if (!nextNumber) return;
+  if (!nextNumber) return;
 
-    const generatedName = `Table-${nextNumber}`;
+  const generatedName = `Table-${nextNumber}`;
 
-    try {
-      const res = await fetch(`/api/dashboard/tables/${table.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: generatedName,
-        }),
-      });
+  try {
+    const res = await fetch(`/api/dashboard/tables/${table.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: generatedName,
+      }),
+    });
 
-      const data = await res.json();
+    const result = await res.json();
 
-      if (!data.success) {
-        showError(data.error || "Failed to rename table");
-        return;
-      }
-
-      setTables((current) =>
-        current.map((item) => (item.id === table.id ? data.table : item)),
-      );
-
-      showMessage("Table renamed");
-    } catch (error) {
-      console.error("RENAME TABLE ERROR:", error);
-      showError("Failed to rename table");
+    if (!result.success) {
+      showError(result.error || "Failed to rename table");
+      return;
     }
-  };
+
+    await loadTables();
+
+    showMessage("Table renamed");
+  } catch (error) {
+    console.error("RENAME TABLE ERROR:", error);
+    showError("Failed to rename table");
+  }
+};
 
   const deleteTable = async (table: RestaurantTable) => {
     const confirmed = confirm(`Delete ${table.name}?`);
@@ -336,222 +376,154 @@ export default function TablesPage() {
     [tables],
   );
 
+  const { setHeader } = useDashboardHeader();
+
+  useEffect(() => {
+  setHeader({
+    title: "Tables",
+    description: "Manage restaurant tables and QR ordering.",
+    
+  });
+
+  return () => setHeader(null);
+}, [setHeader, loadTables, refreshing]);
+
   return (
-  <main className="space-y-6 px-4 py-5">
-    {/* Header */}
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <h1 className="text-3xl font-bold text-[#111827] dark:text-[#E7E9EC]">
-          Tables
-        </h1>
+  <main
+  className="
+    min-h-full
+    space-y-8
+    bg-[var(--color-bg)]
+  "
+>
 
-        <p className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]">
-          Manage restaurant tables and QR ordering
-        </p>
-      </div>
-
-      <div className="flex gap-3">
-        <button
-          onClick={loadTables}
-          disabled={refreshing}
-          className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[#E4DED3] bg-white px-4 text-sm font-semibold dark:border-[#2A2F35] dark:bg-[#171A1F]"
-        >
-          {refreshing ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <RefreshCw className="size-4" />
-          )}
-          Refresh
-        </button>
-
-        <a
-          href="/dashboard/tables/print"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[#2F7D57] px-4 text-sm font-semibold text-white"
-        >
-          <Printer className="size-4" />
-          Print QR
-        </a>
-      </div>
-    </div>
+  
 
     {/* Stats */}
-    <div className="grid grid-cols-3 gap-3">
-      <div className="rounded-2xl border border-[#E4DED3] bg-white p-4 dark:border-[#2A2F35] dark:bg-[#171A1F]">
-        <p className="text-xs text-[#667085] dark:text-[#AAB2BD]">
-          Total Tables
-        </p>
-        <p className="mt-1 text-2xl font-bold text-[#111827] dark:text-[#E7E9EC]">
-          {tables.length}
-        </p>
-      </div>
-
-      <div className="rounded-2xl border border-[#E4DED3] bg-white p-4 dark:border-[#2A2F35] dark:bg-[#171A1F]">
-        <p className="text-xs text-[#667085] dark:text-[#AAB2BD]">
-          Active
-        </p>
-        <p className="mt-1 text-2xl font-bold text-[#2F7D57]">
-          {activeTables}
-        </p>
-      </div>
-
-      <div className="rounded-2xl border border-[#E4DED3] bg-white p-4 dark:border-[#2A2F35] dark:bg-[#171A1F]">
-        <p className="text-xs text-[#667085] dark:text-[#AAB2BD]">
-          Occupied
-        </p>
-        <p className="mt-1 text-2xl font-bold text-orange-600">
-          {occupiedTables}
-        </p>
-      </div>
-    </div>
+    <DashboardStats
+  items={[
+    {
+      label: "Total Tables",
+      value: tables.length,
+      icon: Table2,
+      description: "All restaurant tables",
+    },
+    {
+      label: "Active",
+      value: activeTables,
+      icon: CheckCircle2,
+      description: "Ready for customers",
+    },
+    {
+      label: "Occupied",
+      value: occupiedTables,
+      icon: Users,
+      description: "Currently serving",
+    },
+  ]}
+/>
 
     {/* Create Table */}
-    <div className="rounded-3xl border border-[#E4DED3] bg-white p-5 dark:border-[#2A2F35] dark:bg-[#171A1F]">
-      <h2 className="text-lg font-semibold text-[#111827] dark:text-[#E7E9EC]">
-        Create Table
-      </h2>
+   <DashboardToolbar
+  left={
+    <DashboardSearch
+      value={search}
+      onChange={setSearch}
+      placeholder="Search tables..."
+    />
+  }
+  center={
+    <DashboardFilterTabs
+      value={statusFilter}
+      onChange={setStatusFilter}
+      options={[
+        { label: "All", value: "all" },
+        { label: "Available", value: "available" },
+        { label: "Occupied", value: "occupied" },
+        { label: "Bill", value: "bill_requested" },
+        { label: "Disabled", value: "disabled" },
+      ]}
+    />
+  }
+  right={
+    <>
+    <DashboardButton
+      onClick={() => setCreateDialogOpen(true)}
+    >
+      <Plus className="size-4" />
+      Create Table
+    </DashboardButton>
 
-      <div className="mt-4 flex flex-col gap-3 lg:flex-row">
-        <input
-          type="number"
-          min="1"
-          value={tableNumber}
-          onChange={(e) =>
-            setTableNumber(e.target.value.replace(/\D/g, ""))
-          }
-          placeholder="Enter table number"
-          className="h-12 flex-1 rounded-2xl border border-[#E4DED3] bg-white px-4 outline-none dark:border-[#2A2F35] dark:bg-[#20242A]"
-        />
-
-        <button
-          onClick={addTable}
-          disabled={saving}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#2F7D57] px-5 font-semibold text-white"
-        >
-          {saving ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Plus className="size-4" />
-          )}
-
-          {saving ? "Creating..." : "Create Table"}
-        </button>
-      </div>
-
-      {message && (
-        <div className="mt-4 rounded-2xl bg-green-50 p-3 text-sm text-green-700">
-          {message}
-        </div>
+    
+    <DashboardButton
+      variant="secondary"
+      onClick={loadTables}
+      disabled={refreshing}
+    >
+      {refreshing ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : (
+        <RefreshCw className="size-4" />
       )}
 
-      {errorMessage && (
-        <div className="mt-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      )}
-    </div>
+      Refresh
+    </DashboardButton>
+
+    <a
+  href="/dashboard/tables/print"
+  target="_blank"
+  rel="noreferrer"
+  className="
+    inline-flex
+    h-11
+    items-center
+    justify-center
+    gap-2
+    rounded-xl
+    bg-[var(--color-primary)]
+    px-5
+    text-sm
+    font-semibold
+    text-white
+    transition-all
+    hover:bg-[var(--color-primary-hover)]
+  "
+>
+  <Printer className="size-4" />
+  Print QR
+</a>
+</>
+  
+  }
+/>
 
     {/* Loading */}
     {loading ? (
-      <div className="flex justify-center py-20">
-        <Loader2 className="size-8 animate-spin text-[#2F7D57]" />
-      </div>
-    ) : (
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {tables.map((table) => {
-          const qrUrl = getQRUrl(table.qr_token);
-          const qrPath = getQRPath(table.qr_token);
+  <div className="flex justify-center py-24">
+    <Loader2 className="size-8 animate-spin text-[var(--color-primary)]" />
+  </div>
+) : (
+  <TablesGrid
+  
+  tables={filteredTables}
+  updatingTableId={updatingTableId}
+  tableWorkflowMode={tableWorkflowMode}
+  getQRUrl={getQRUrl}
+  getQRPath={getQRPath}
+  onCopy={copyQRLink}
+  onDownload={downloadQR}
+  onRename={renameTable}
+  onToggle={toggleTable}
+  onDelete={deleteTable}
+  onStatusChange={updateTableStatus}
+/>
+)}
 
-          return (
-            <div
-              key={table.id}
-              className="rounded-3xl border border-[#E4DED3] bg-white p-5 dark:border-[#2A2F35] dark:bg-[#171A1F]"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-[#111827] dark:text-[#E7E9EC]">
-                    {table.name}
-                  </h3>
-
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <span
-                      className={
-                        table.is_active
-                          ? "rounded-full bg-green-100 px-2 py-1 text-xs text-green-700"
-                          : "rounded-full bg-red-100 px-2 py-1 text-xs text-red-700"
-                      }
-                    >
-                      {table.is_active ? "Active" : "Inactive"}
-                    </span>
-
-                    <span className="rounded-full bg-[#F7F8FA] px-2 py-1 text-xs text-[#667085] dark:bg-[#20242A] dark:text-[#AAB2BD]">
-                      {table.status}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => toggleTable(table)}
-                  className="rounded-xl border border-[#E4DED3] px-3 py-1 text-xs font-semibold dark:border-[#2A2F35]"
-                >
-                  {table.is_active ? "Disable" : "Enable"}
-                </button>
-              </div>
-
-              <div className="mt-5 flex justify-center">
-                <div className="rounded-2xl bg-white p-3">
-                  <QRCodeCanvas
-                    id={`qr-${table.id}`}
-                    value={qrUrl}
-                    size={150}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-5 grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => copyQRLink(table)}
-                  className="rounded-xl border border-[#E4DED3] p-2 text-sm dark:border-[#2A2F35]"
-                >
-                  Copy
-                </button>
-
-                <button
-                  onClick={() => downloadQR(table)}
-                  className="rounded-xl border border-[#E4DED3] p-2 text-sm dark:border-[#2A2F35]"
-                >
-                  Download
-                </button>
-
-                <a
-                  href={qrPath}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-xl bg-[#2F7D57] p-2 text-center text-sm text-white"
-                >
-                  Open
-                </a>
-
-                <button
-                  onClick={() => renameTable(table)}
-                  className="rounded-xl border border-[#E4DED3] p-2 text-sm dark:border-[#2A2F35]"
-                >
-                  Rename
-                </button>
-              </div>
-
-              <button
-                onClick={() => deleteTable(table)}
-                className="mt-3 w-full rounded-xl bg-red-50 p-2 text-sm font-medium text-red-700"
-              >
-                Delete Table
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    )}
+<CreateTableDialog
+  open={createDialogOpen}
+  onOpenChange={setCreateDialogOpen}
+  onCreate={addTable}
+/>
   </main>
 );
 }

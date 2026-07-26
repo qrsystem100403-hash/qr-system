@@ -1,20 +1,18 @@
-import Link from "next/link"
-import {
-  Banknote,
-  CheckCircle2,
-  XCircle,
-  ReceiptText,
-} from "lucide-react"
+import { can } from "@/lib/auth/can";
+import { forbidden } from "next/navigation";
 
 import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
 
-import OrderQueue from "../_components/OrderQueue"
-import OrderDetailsPanel from "../_components/OrderDetailsPanel"
+import MobileHistoryView from "./_components/mobile/MobileHistoryView";
+
 
 import type {
-  Order,
-  StatusTabValue,
+  Order
 } from "../_components/order-types"
+import HistoryQueue from "./_components/HistoryQueue";
+import HistoryRail from "./_components/HistoryRail";
+import HistoryInspector from "./_components/HistoryInspector";
+import HistoryHeader from "./_components/HistoryHeader";
 
 type HistoryTab =
   | "all"
@@ -42,8 +40,11 @@ function isValidStatus(
 export default async function OrderHistoryPage({
   searchParams,
 }: Props) {
-  const { restaurant, supabase } =
-    await requireRestaurantUser()
+  const { restaurant, supabase, role } =
+  await requireRestaurantUser();
+    if (!can(role, "orders")) {
+  forbidden();
+}
 
   const params =
     await searchParams
@@ -60,32 +61,47 @@ export default async function OrderHistoryPage({
     params?.q?.trim() ?? ""
 
   const baseSelect = `
+  id,
+  order_type,
+  table_name,
+  customer_name,
+  customer_phone,
+  address,
+  tracking_token,
+
+  subtotal,
+  service_charge,
+  service_charge_enabled,
+  service_charge_type,
+  service_charge_value,
+
+  gst_enabled,
+  gst_mode,
+  gst_percent,
+  gst_amount,
+
+  round_off,
+  total,
+
+  payment_status,
+  order_status,
+  customer_note,
+  cancel_reason,
+  created_at,
+
+  order_items (
     id,
-    order_type,
-    table_name,
-    customer_name,
-    customer_phone,
-    address,
-    tracking_token,
-    total,
-    payment_status,
-    order_status,
-    customer_note,
-    cancel_reason,
-    created_at,
-    order_items (
+    qty,
+    item_price,
+    item_name,
+    variant_name,
+    order_item_addons (
       id,
-      qty,
-      item_price,
-      item_name,
-      variant_name,
-      order_item_addons (
-        id,
-        addon_name,
-        addon_price
-      )
+      addon_name,
+      addon_price
     )
-  `
+  )
+`
 
   const {
     data,
@@ -176,232 +192,104 @@ export default async function OrderHistoryPage({
       0
     )
 
+  const counts = {
+  all: allOrders.length,
+  served: completedOrders.length,
+  cancelled: cancelledOrders.length,
+};
+
   return (
-    <section
+    <>
+  <HistoryHeader />
+
+  {/* Mobile & Tablet */}
+
+  <div className="lg:hidden">
+    <MobileHistoryView
+      orders={orders}
+      activeStatus={activeStatus}
+      searchQuery={searchQuery}
+      counts={counts}
+    />
+  </div>
+
+  {/* Desktop */}
+
+  <section
+    className="
+      hidden
+      lg:grid
+      xl:h-[calc(100vh-135px)]
+      xl:grid-cols-[320px_minmax(0,1fr)_440px]
+      gap-5
+    "
+  >
+    {/* Sidebar */}
+
+    <aside
       className="
-        grid
-        gap-5
-        min-h-[calc(100vh-118px)]
-        xl:grid-cols-[320px_minmax(520px,1fr)_340px]
+        sticky
+        top-15
+        h-fit
       "
     >
-      {/* LEFT SIDEBAR */}
+      <HistoryRail
+        activeStatus={activeStatus}
+        searchQuery={searchQuery}
+        completedOrders={completedOrders.length}
+        cancelledOrders={cancelledOrders.length}
+        revenue={revenue}
+      />
+    </aside>
 
-      <aside className="hidden xl:flex xl:flex-col">
-        <div className="rounded-3xl border border-[#E4DED3] bg-white p-5 dark:border-[#2A2F35] dark:bg-[#171A1F]">
+    {/* Queue */}
 
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98A2B3]">
-              History
-            </p>
+    <main
+      className="
+        min-w-0
+        overflow-hidden
+        rounded-[var(--radius-xl)]
+        border
+        border-[var(--color-border)]
+        bg-[var(--color-surface)]
+        shadow-[var(--shadow-sm)]
+      "
+    >
+      <HistoryQueue
+        orders={orders}
+        selectedOrderId={selectedOrder?.id}
+        activeStatus={activeStatus}
+        searchQuery={searchQuery}
+      />
+    </main>
 
-            <h1 className="mt-2 text-3xl font-black text-[#111827] dark:text-[#E7E9EC]">
-              Orders
-            </h1>
+    {/* Inspector */}
 
-            <p className="mt-1 text-sm text-[#667085] dark:text-[#AAB2BD]">
-              Completed & cancelled orders
-            </p>
-          </div>
-
-          <div className="mt-6 space-y-3">
-
-            <div className="rounded-2xl bg-[#F7F8FA] p-4 dark:bg-[#20242A]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-[#667085]">
-                    Completed
-                  </p>
-
-                  <p className="mt-1 font-mono text-2xl font-bold">
-                    {completedOrders.length}
-                  </p>
-                </div>
-
-                <CheckCircle2 className="size-5 text-[#2F7D57]" />
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-[#F7F8FA] p-4 dark:bg-[#20242A]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-[#667085]">
-                    Cancelled
-                  </p>
-
-                  <p className="mt-1 font-mono text-2xl font-bold">
-                    {cancelledOrders.length}
-                  </p>
-                </div>
-
-                <XCircle className="size-5 text-[#B42318]" />
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-[#F7F8FA] p-4 dark:bg-[#20242A]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-[#667085]">
-                    Revenue
-                  </p>
-
-                  <p className="mt-1 font-mono text-2xl font-bold">
-                    ₹{revenue}
-                  </p>
-                </div>
-
-                <Banknote className="size-5 text-[#2F7D57]" />
-              </div>
-            </div>
-
-          </div>
-
-          <div className="my-6 h-px bg-[#E4DED3] dark:bg-[#2A2F35]" />
-
-          <div className="space-y-2">
-
-            <Link
-              href="/dashboard/orders/history"
-              className={`flex items-center justify-between rounded-2xl px-4 py-3 transition-all ${
-                activeStatus === "all"
-                  ? "bg-[#E7F3EC] text-[#2F7D57] dark:bg-[#183026] dark:text-[#7BC99A]"
-                  : "hover:bg-[#F7F8FA] dark:hover:bg-[#20242A]"
-              }`}
-            >
-              <span className="font-medium">
-                All Orders
-              </span>
-
-              <span className="font-mono">
-                {allOrders.length}
-              </span>
-            </Link>
-
-            <Link
-              href="/dashboard/orders/history?status=served"
-              className={`flex items-center justify-between rounded-2xl px-4 py-3 transition-all ${
-                activeStatus ===
-                "served"
-                  ? "bg-[#E7F3EC] text-[#2F7D57] dark:bg-[#183026] dark:text-[#7BC99A]"
-                  : "hover:bg-[#F7F8FA] dark:hover:bg-[#20242A]"
-              }`}
-            >
-              <span className="font-medium">
-                Completed
-              </span>
-
-              <span className="font-mono">
-                {completedOrders.length}
-              </span>
-            </Link>
-
-            <Link
-              href="/dashboard/orders/history?status=cancelled"
-              className={`flex items-center justify-between rounded-2xl px-4 py-3 transition-all ${
-                activeStatus ===
-                "cancelled"
-                  ? "bg-[#E7F3EC] text-[#2F7D57] dark:bg-[#183026] dark:text-[#7BC99A]"
-                  : "hover:bg-[#F7F8FA] dark:hover:bg-[#20242A]"
-              }`}
-            >
-              <span className="font-medium">
-                Cancelled
-              </span>
-
-              <span className="font-mono">
-                {cancelledOrders.length}
-              </span>
-            </Link>
-
-          </div>
-        </div>
-      </aside>
-
-      {/* MOBILE HEADER */}
-
-      <div className="xl:hidden">
-        <div className="rounded-3xl border border-[#E4DED3] bg-white p-5 dark:border-[#2A2F35] dark:bg-[#171A1F]">
-
-          <div className="flex items-center gap-3">
-            <div className="grid size-11 place-items-center rounded-2xl bg-[#E7F3EC] text-[#2F7D57] dark:bg-[#183026] dark:text-[#7BC99A]">
-              <ReceiptText className="size-5" />
-            </div>
-
-            <div>
-              <h1 className="text-xl font-black">
-                Order History
-              </h1>
-
-              <p className="text-sm text-[#667085]">
-                Completed & cancelled
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 flex gap-2 overflow-x-auto">
-
-            <Link
-              href="/dashboard/orders/history"
-              className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold ${
-                activeStatus === "all"
-                  ? "bg-[#2F7D57] text-white"
-                  : "border border-[#E4DED3]"
-              }`}
-            >
-              All
-            </Link>
-
-            <Link
-              href="/dashboard/orders/history?status=served"
-              className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold ${
-                activeStatus ===
-                "served"
-                  ? "bg-[#2F7D57] text-white"
-                  : "border border-[#E4DED3]"
-              }`}
-            >
-              Completed
-            </Link>
-
-            <Link
-              href="/dashboard/orders/history?status=cancelled"
-              className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold ${
-                activeStatus ===
-                "cancelled"
-                  ? "bg-[#2F7D57] text-white"
-                  : "border border-[#E4DED3]"
-              }`}
-            >
-              Cancelled
-            </Link>
-
-          </div>
-        </div>
-      </div>
-
-      {/* ORDER LIST */}
-
-      <div className="min-w-0">
-        <OrderQueue
-          orders={orders}
-          selectedOrderId={
-            selectedOrder?.id
-          }
-          activeStatus="all"
-          searchQuery={
-            searchQuery
-          }
+    <aside
+      className="
+        sticky
+        top-24
+        h-[calc(100vh-135px)]
+      "
+    >
+      <div
+        className="
+          h-full
+          overflow-hidden
+          rounded-[var(--radius-xl)]
+          border
+          border-[var(--color-border)]
+          bg-[var(--color-surface)]
+          shadow-[var(--shadow-sm)]
+        "
+      >
+        <HistoryInspector
+          order={selectedOrder}
         />
       </div>
-
-      {/* DETAILS */}
-
-      <OrderDetailsPanel
-        order={selectedOrder}
-        workflowMode={
-          restaurant.workflow_mode
-        }
-      />
-    </section>
+    </aside>
+  </section>
+</>
+    
   )
 }

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { useRouter } from "next/navigation";
+
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -11,6 +13,8 @@ export default function LoginForm() {
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const router = useRouter()
+  
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -30,7 +34,11 @@ export default function LoginForm() {
         return;
       }
 
-      window.location.href = "/dashboard";
+      
+
+
+
+      router.replace("/dashboard")
     } catch (error) {
       console.error("LOGIN ERROR:", error);
       setErrorMessage("Login failed. Please try again.");
@@ -99,6 +107,23 @@ export default function LoginForm() {
           </button>
         </div>
       </div>
+      <div className="flex justify-end">
+  <button
+    type="button"
+    onClick={() => {
+      window.location.href = "/forgot-password";
+    }}
+    className="
+      text-sm
+      font-medium
+      text-[var(--color-gold)]
+      transition
+      hover:underline
+    "
+  >
+    Forgot Password?
+  </button>
+</div>
 
       <button
         type="submit"

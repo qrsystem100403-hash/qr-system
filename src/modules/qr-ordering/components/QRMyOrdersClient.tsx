@@ -36,7 +36,23 @@ type PaymentStatus = "pending" | "paid";
 type LiveOrder = {
   id: string;
   table_name: string;
+
+  subtotal: number;
+
+  service_charge: number;
+  service_charge_enabled: boolean;
+  service_charge_type: string;
+  service_charge_value: number;
+
+  gst_enabled: boolean;
+  gst_mode: string;
+  gst_percent: number;
+  gst_amount: number;
+
+  round_off: number;
+
   total: number;
+
   order_status: OrderStatus;
   payment_status: PaymentStatus;
   cancel_reason: string | null;
@@ -444,35 +460,44 @@ export default function QRMyOrdersClient({
                       </div>
                     )}
 
-                    <div className="grid gap-2.5 sm:grid-cols-3">
-                      <div className="rounded-2xl border border-white/[0.07] bg-black/18 p-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
-                          Total
-                        </p>
-                        <p className="mt-1 text-xl font-black text-[var(--color-gold)]">
-                          ₹{live.total}
-                        </p>
-                      </div>
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+  <div className="rounded-2xl border border-white/[0.07] bg-black/18 p-3">
+    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
+      Total
+    </p>
+    <p className="mt-1 text-xl font-black text-[var(--color-gold)]">
+      ₹{live.total.toFixed(2)}
+    </p>
+  </div>
 
-                      <div className="rounded-2xl border border-white/[0.07] bg-black/18 p-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
-                          Payment
-                        </p>
-                        <p className="mt-1 inline-flex items-center gap-1 text-sm font-black capitalize">
-                          <CreditCard className="size-4 text-[var(--color-gold)]" />
-                          {live.payment_status}
-                        </p>
-                      </div>
+  <div className="rounded-2xl border border-white/[0.07] bg-black/18 p-3">
+    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
+      Subtotal
+    </p>
+    <p className="mt-1 font-bold">
+      ₹{live.subtotal.toFixed(2)}
+    </p>
+  </div>
 
-                      <div className="rounded-2xl border border-white/[0.07] bg-black/18 p-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
-                          Placed
-                        </p>
-                        <p className="mt-1 text-sm font-black">
-                          {formatTime(live.created_at)}
-                        </p>
-                      </div>
-                    </div>
+  <div className="rounded-2xl border border-white/[0.07] bg-black/18 p-3">
+    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
+      Payment
+    </p>
+    <p className="mt-1 inline-flex items-center gap-1 text-sm font-black capitalize">
+      <CreditCard className="size-4 text-[var(--color-gold)]" />
+      {live.payment_status}
+    </p>
+  </div>
+
+  <div className="rounded-2xl border border-white/[0.07] bg-black/18 p-3">
+    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
+      Placed
+    </p>
+    <p className="mt-1 text-sm font-black">
+      {formatTime(live.created_at)}
+    </p>
+  </div>
+</div>
 
                     <div className="grid gap-2 sm:grid-cols-3">
                       <Link

@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 
 import type { OrderStatus } from "./order-types"
+import { getCapabilities } from "@/lib/auth/capabilities";
 
 type NextStatus =
   | "preparing"
@@ -19,22 +20,25 @@ type NextStatus =
   | "cancelled"
 
 type Props = {
-  orderId: string
-  currentStatus: OrderStatus
-  nextStatus: NextStatus
-  label: string
+  orderId: string;
+  currentStatus: OrderStatus;
+  nextStatus: NextStatus;
+  label: string;
   variant:
     | "orange"
     | "green"
     | "outline"
-    | "danger"
+    | "danger";
   icon?:
     | "chef"
     | "ready"
     | "complete"
-    | "cancel"
-  compact?: boolean
-}
+    | "cancel";
+  compact?: boolean;
+  capabilities: ReturnType<typeof getCapabilities>;
+  onSuccess?: () => void;
+
+};
 
 export default function OrderStatusAction({
   orderId,
@@ -44,6 +48,8 @@ export default function OrderStatusAction({
   variant,
   icon,
   compact = false,
+  capabilities,
+  onSuccess,
 }: Props) {
   const router = useRouter()
 
@@ -91,17 +97,20 @@ export default function OrderStatusAction({
         await response.json()
 
       if (
-        !response.ok ||
-        !data.success
-      ) {
-        alert(
-          data.error ||
-            "Failed to update order."
-        )
-        return
-      }
+  !response.ok ||
+  !data.success
+) {
+  alert(
+    data.error ||
+      "Failed to update order."
+  )
+  return
+}
 
-      router.refresh()
+onSuccess?.()
+
+router.refresh()
+
     } catch {
       alert(
         "Something went wrong."

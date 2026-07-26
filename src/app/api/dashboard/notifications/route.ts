@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server"
-import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import {
+  fail,
+  ok,
+} from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { requireRestaurantUser } from "@/lib/requireRestaurantUser";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET() {
   try {
     const { restaurant } =
-      await requireRestaurantUser()
+      await requireRestaurantUser();
 
     const { data, error } =
       await supabaseAdmin
@@ -20,34 +24,48 @@ export async function GET() {
         `)
         .eq(
           "restaurant_id",
-          restaurant.id
+          restaurant.id,
         )
         .order(
           "created_at",
           {
             ascending: false,
-          }
+          },
         )
-        .limit(20)
+        .limit(20);
 
     if (error) {
-      throw error
+      logger.error({
+        message:
+          "Failed to load notifications",
+        error,
+        context: {
+          module: "notifications",
+          action:
+            "getNotifications",
+          restaurantId:
+            restaurant.id,
+        },
+      });
+
+      return fail(error);
     }
 
-    return NextResponse.json({
-      success: true,
-      notifications: data,
-    })
+    return ok({
+      notifications: data ?? [],
+    });
   } catch (error) {
-    console.error(error)
-
-    return NextResponse.json(
-      {
-        success: false,
+    logger.error({
+      message:
+        "Unexpected error while loading notifications",
+      error,
+      context: {
+        module: "notifications",
+        action:
+          "getNotifications",
       },
-      {
-        status: 500,
-      }
-    )
+    });
+
+    return fail(error);
   }
 }

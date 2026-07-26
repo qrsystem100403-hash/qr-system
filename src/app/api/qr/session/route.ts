@@ -1,8 +1,25 @@
-import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { z } from "zod";
-import { randomBytes } from "crypto";
-import { supabaseAdmin } from "@/lib/supabase/admin";
-import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant";
+
+import {
+  badRequest,
+  conflict,
+  fail,
+  notFound,
+  ok,
+} from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { resolvePublicRestaurant } from "@/modules/core/restaurants/utils/resolvePublicRestaurant";
+import {
+  SessionCookieService,
+  SessionService,
+  SESSION_COOKIE_NAME,
+} from "@/modules/sessions";
+import { TableService } from "@/modules/tables";
+
+const tableService = new TableService();
+const sessionService = new SessionService();
+const cookieService = new SessionCookieService();
 
 const schema = z.object({
   tableToken: z.string().min(20).max(100),
@@ -10,161 +27,162 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const restaurant = await resolvePublicRestaurant();
+    const resolved =
+  await resolvePublicRestaurant();
 
-    if (!restaurant) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Restaurant not found",
-        },
-        {
-          status: 404,
-        },
-      );
-    }
+if (!resolved) {
+  logger.warn({
+    message: "Session requested for unknown restaurant",
+    context: {
+      module: "public-session",
+      action: "startSession",
+    },
+  });
 
-    const body = await request.json();
+  return notFound("Restaurant not found");
+}
 
-    const parsed = schema.safeParse(body);
+const { restaurant, features } = resolved;
+
+    const body =
+      await request.json();
+
+    const parsed =
+      schema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid table",
+      logger.warn({
+        message:
+          "Invalid session payload",
+        context: {
+          module: "public-session",
+          action: "startSession",
+          restaurantId:
+            restaurant.id,
+          metadata: {
+            issues:
+              parsed.error.flatten(),
+          },
         },
-        {
-          status: 400,
-        },
+      });
+
+      return badRequest(
+        "Invalid table",
+        parsed.error.flatten(),
       );
     }
 
-    const { tableToken } = parsed.data;
+    const { tableToken } =
+      parsed.data;
 
-    const { data: table, error } = await supabaseAdmin
-      .from("restaurant_tables")
-      .select(
-        `
-  id,
-  is_active,
-  status,
-  current_session_token,
-  session_expires_at
-`,
-      )
-      .eq("restaurant_id", restaurant.id)
-      .eq("qr_token", tableToken)
-      .single();
+    const table =
+      await tableService.getByQrToken(
+        restaurant.id,
+        tableToken,
+      );
 
-    if (error || !table) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid table",
-        },
-        {
-          status: 400,
-        },
+    if (!table) {
+      return badRequest(
+        "Invalid table",
       );
     }
 
     if (!table.is_active) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Table inactive",
-        },
-        {
-          status: 400,
-        },
+      return badRequest(
+        "Table inactive",
       );
     }
 
-    const now = Date.now();
+    const sessionToken =
+      (
+        await cookies()
+      ).get(
+        SESSION_COOKIE_NAME,
+      )?.value;
 
-    const existingValid =
-      table.current_session_token &&
-      table.session_expires_at &&
-      new Date(table.session_expires_at).getTime() > now;
-
-      const tableStatus =
-  table.status ?? "available"
-
-     if (
-  !existingValid &&
-  tableStatus !== "available"
-) {
-  return NextResponse.json(
-    {
-      success: false,
-      error: "Session expired",
-    },
-    {
-      status: 403,
-    }
-  )
-}
-
-    let sessionToken =
-  table.current_session_token ?? null;
-
-   if (
-  !existingValid &&
-  tableStatus === "available"
-) {
-  sessionToken =
-    randomBytes(32).toString("hex");
-
-  const { error: sessionError } =
-    await supabaseAdmin
-      .from("restaurant_tables")
-      .update({
-        current_session_token:
+    if (sessionToken) {
+      const currentSession =
+        await sessionService.findByToken(
           sessionToken,
+        );
 
-        session_started_at:
-          new Date().toISOString(),
+      if (
+        currentSession &&
+        currentSession.status !==
+          "completed" &&
+        currentSession.status !==
+          "expired" &&
+        currentSession.table_id !==
+          table.id
+      ) {
+        logger.warn({
+          message:
+            "Active session conflict",
+          context: {
+            module:
+              "public-session",
+            action:
+              "startSession",
+            restaurantId:
+              restaurant.id,
+          },
+        });
 
-        session_expires_at:
-          new Date(
-            now +
-              90 * 60 * 1000
-          ).toISOString(),
-      })
-      .eq("id", table.id);
+        return conflict(
+          "You already have an active dining session.",
+          {
+            code:
+              "ACTIVE_SESSION_EXISTS",
+          },
+        );
+      }
+    }
 
-  if (sessionError) {
-    throw sessionError;
-  }
-}
-   
+    const session =
+      await sessionService.getOrCreateActiveSession(
+        restaurant.id,
+        table.id,
+      );
 
+    const response = ok({});
 
+    cookieService.set(
+      response,
+      session.session_token,
+    );
 
-    const response = NextResponse.json({
-      success: true,
-    });
-
-    response.cookies.set("qr_session", sessionToken!, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 90 * 60,
+    logger.info({
+      message:
+        "Dining session started",
+      context: {
+        module:
+          "public-session",
+        action:
+          "startSession",
+        restaurantId:
+          restaurant.id,
+        metadata: {
+          tableId: table.id,
+          sessionId:
+            session.id,
+        },
+      },
     });
 
     return response;
   } catch (error) {
-    console.error("QR SESSION ERROR:", error);
+    logger.error({
+      message:
+        "Failed to start dining session",
+      error,
+      context: {
+        module:
+          "public-session",
+        action:
+          "startSession",
+      },
+    });
 
-    return NextResponse.json(
-      {
-        success: false,
-      },
-      {
-        status: 500,
-      },
-    );
+    return fail(error);
   }
 }

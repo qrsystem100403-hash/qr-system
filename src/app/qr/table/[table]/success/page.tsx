@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import QRSuccessClient from "@/modules/qr-ordering/components/QRSuccessClient"
-import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
+import { resolvePublicRestaurant } from "@/modules/core/restaurants/utils/resolvePublicRestaurant"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 
 type Props = {
@@ -21,13 +21,21 @@ export default async function QRSuccessPage({
 }: Props) {
   const { orderId, trackingToken } = await searchParams
 
-  const restaurant = await resolvePublicRestaurant()
+  const resolved = await resolvePublicRestaurant()
 
-  if (!restaurant) {
-    notFound()
-  }
+if (!resolved) {
+  notFound()
+}
 
-const { table: tableToken } =
+const { restaurant, features } = resolved
+
+const requiresReadyStage =
+  !!(
+    features?.kitchen_display_enabled ||
+    features?.waiter_dashboard_enabled
+  )
+
+const { table: tableToken } =  
   await params
 
 const {
@@ -68,11 +76,11 @@ if (
   restaurantPhone={
     restaurant.phone ?? null
   }
-  workflowMode={
-    restaurant.workflow_mode as
-      "simple" | "advanced"
-  }
+
+  requiresReadyStage={requiresReadyStage}
+  
 />
+
     </main>
   )
 }

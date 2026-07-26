@@ -1,26 +1,27 @@
-import Link from "next/link"
-import { AlertTriangle, ArrowLeft, Printer } from "lucide-react"
-import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
-import PrintQRCodesClient from "./PrintQRCodesClient"
+import Link from "next/link";
+import { AlertTriangle, ArrowLeft, Printer } from "lucide-react";
+import { requireRestaurantUser } from "@/lib/requireRestaurantUser";
+import PrintQRCodesClient from "./PrintQRCodesClient";
 
 type RestaurantTable = {
-  id: string
-  name: string
-  is_active: boolean
-}
+  id: string;
+  name: string;
+  is_active: boolean;
+  qr_token: string;
+};
 
 export default async function PrintTablesPage() {
-  const { restaurant, supabase } = await requireRestaurantUser()
+  const { restaurant, supabase } = await requireRestaurantUser();
 
   const { data: tables, error } = await supabase
     .from("restaurant_tables")
-    .select("id, name, is_active")
+    .select("id, name, is_active, qr_token")
     .eq("restaurant_id", restaurant.id)
     .eq("is_active", true)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (error) {
-    console.error("PRINT TABLES LOAD ERROR:", error)
+    console.error("PRINT TABLES LOAD ERROR:", error);
 
     return (
       <main className="min-h-screen bg-[var(--color-bg)] px-4 py-6 text-[var(--color-text)]">
@@ -58,7 +59,7 @@ export default async function PrintTablesPage() {
           </div>
         </div>
       </main>
-    )
+    );
   }
 
   if (!tables?.length) {
@@ -89,13 +90,13 @@ export default async function PrintTablesPage() {
           </div>
         </div>
       </main>
-    )
+    );
   }
 
   return (
     <PrintQRCodesClient
       restaurantName={restaurant.name}
-      tables={(tables ?? []) as RestaurantTable[]}
+      tables={tables as RestaurantTable[]}
     />
-  )
+  );
 }

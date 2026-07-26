@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
-import QRMyOrdersClient from "@/modules/qr-ordering/components/QRMyOrdersClient"
-import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
+import QRMyOrdersClientV2 from "@/modules/qr-ordering/components/session/QRMyOrdersClientV2"
+import { resolvePublicRestaurant } from "@/modules/core/restaurants/utils/resolvePublicRestaurant"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 
 type PageProps = {
@@ -15,12 +15,16 @@ export default async function QRMyOrdersPage({
   const { table: tableToken } =
     await params
 
-  const restaurant =
-    await resolvePublicRestaurant()
+  const resolved =
+  await resolvePublicRestaurant()
 
-  if (!restaurant) {
-    notFound()
-  }
+if (!resolved) {
+  notFound()
+}
+
+const { restaurant } = resolved
+// or:
+// const { restaurant, features } = resolved
 
   const {
     data: restaurantTable,
@@ -46,7 +50,7 @@ export default async function QRMyOrdersPage({
   return (
     <main className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
       <div className="mx-auto max-w-4xl px-4 py-5">
-        <QRMyOrdersClient
+        <QRMyOrdersClientV2
           table={restaurantTable.name}
           tableToken={
             restaurantTable.qr_token

@@ -1,48 +1,41 @@
-import { headers } from "next/headers"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { headers } from "next/headers";
+
+import { DatabaseError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
+
+import { RestaurantService } from "@/modules/core/restaurants/services/restaurant.service";
+import { normalizeHost } from "@/modules/core/restaurants/utils/restaurant.mapper";
+
+const restaurantService = new RestaurantService();
 
 export async function resolveRestaurant() {
-  const headersList = await headers()
+  const headersList = await headers();
+
   const host =
-  headersList.get("x-forwarded-host") ||
-  headersList.get("host") ||
-  ""
+    headersList.get("x-forwarded-host") ??
+    headersList.get("host") ??
+    "";
 
-let domain = host
-  .split(":")[0]
-  .trim()
-  .toLowerCase()
+  const domain = normalizeHost(host);
 
-  if (domain === "localhost" || domain === "127.0.0.1") {
-    domain = "localhost"
-  }
-
-  const supabase = await createSupabaseServerClient()
-
-  const { data, error } = await supabase
-    .from("restaurants")
-    .select(`
-  id,
-  name,
-  slug,
-  logo,
-  primary_color,
-  domain,
-  workflow_mode,
-  table_workflow_mode
-`)
-    .eq("domain", domain)
-    .single()
-
-  if (error || !data) {
-    console.error("RESTAURANT RESOLVE FAILED:", {
-      host,
-      domain,
+  try {
+    return await restaurantService.resolveByDomain(domain);
+  } catch (error) {
+    logger.error({
+      message: "Failed to resolve restaurant",
       error,
-    })
+      context: {
+        module: "restaurant",
+        action: "resolveRestaurant",
+        metadata: {
+          domain,
+        },
+      },
+    });
 
-    throw new Error("Restaurant not found")
+    throw new DatabaseError(
+      "Failed to resolve restaurant",
+      error,
+    );
   }
-
-  return data
 }

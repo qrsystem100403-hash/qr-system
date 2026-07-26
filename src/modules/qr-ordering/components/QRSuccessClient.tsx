@@ -33,7 +33,23 @@ type PaymentStatus = "pending" | "paid";
 type Order = {
   id: string;
   table_name: string;
+
+  subtotal: number;
+
+  service_charge: number;
+  service_charge_enabled: boolean;
+  service_charge_type: "percentage" | "fixed";
+  service_charge_value: number;
+
+  gst_enabled: boolean;
+  gst_mode: "exclusive" | "inclusive";
+  gst_percent: number;
+  gst_amount: number;
+
+  round_off: number;
+
   total: number;
+
   order_status: OrderStatus;
   payment_status: PaymentStatus;
   cancel_reason: string | null;
@@ -47,7 +63,7 @@ type Props = {
   tableToken: string;
   restaurantId: string;
   restaurantPhone?: string | null;
-  workflowMode: "simple" | "advanced";
+  requiresReadyStage: boolean;
 };
 
 const statusContent: Record<
@@ -106,11 +122,13 @@ export default function QRSuccessClient({
   tableToken,
   restaurantId,
   restaurantPhone,
-  workflowMode,
+  requiresReadyStage,
 }: Props) {
  
   const workflow =
-  WORKFLOWS[workflowMode]
+  requiresReadyStage
+    ? WORKFLOWS.advanced
+    : WORKFLOWS.simple;
 
 const progressStatuses =
   workflow.statuses.filter(
@@ -251,14 +269,14 @@ const progressLabels =
   const Icon = content.icon;
 
   const activeIndex = useMemo(() => {
-    if (!order || order.order_status === "cancelled") return -1;
-    return progressStatuses.indexOf(order.order_status);
-  }, [order]);
+  if (!order || order.order_status === "cancelled") return -1;
+  return progressStatuses.indexOf(order.order_status);
+}, [order, progressStatuses]);
 
   const progressPercent = useMemo(() => {
-    if (activeIndex < 0) return 0;
-    return Math.min(100, (activeIndex / (progressStatuses.length - 1)) * 100);
-  }, [activeIndex]);
+  if (activeIndex < 0) return 0;
+  return Math.min(100, (activeIndex / (progressStatuses.length - 1)) * 100);
+}, [activeIndex, progressStatuses]);
 
   const isCancelled = currentStatus === "cancelled";
 
@@ -544,56 +562,116 @@ const progressLabels =
                 )}
 
                 <div className="rounded-[22px] border border-white/[0.07] bg-black/18 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-gold)]">
-                    Bill Summary
-                  </p>
+  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-gold)]">
+    Bill Summary
+  </p>
 
-                  <div className="mt-4 space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[var(--color-text-muted)]">
-                        Order total
-                      </span>
-                      <span className="text-xl font-black text-[var(--color-gold)]">
-                        ₹{order.total}
-                      </span>
-                    </div>
+  <div className="mt-4 space-y-3">
 
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="inline-flex items-center gap-2 text-[var(--color-text-muted)]">
-                        <CreditCard className="size-4" />
-                        Payment
-                      </span>
+    <div className="flex justify-between text-sm">
+      <span className="text-[var(--color-text-muted)]">
+        Subtotal
+      </span>
 
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-black capitalize ${
-                          order.payment_status === "paid"
-                            ? "bg-green-500/10 text-green-300"
-                            : "bg-yellow-500/10 text-yellow-200"
-                        }`}
-                      >
-                        {order.payment_status}
-                      </span>
-                    </div>
+      <span className="font-bold">
+        ₹{order.subtotal}
+      </span>
+    </div>
 
-                    <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-3 text-sm">
-                      <span className="text-[var(--color-text-muted)]">
-                        Placed
-                      </span>
-                      <span className="font-bold text-[var(--color-text)]">
-                        {formatOrderTime(order.created_at)}
-                      </span>
-                    </div>
+    {order.service_charge_enabled && (
+      <div className="flex justify-between text-sm">
+        <span className="text-[var(--color-text-muted)]">
+          Service Charge
+          {order.service_charge_type === "percentage"
+            ? ` (${order.service_charge_value}%)`
+            : ""}
+        </span>
 
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[var(--color-text-muted)]">
-                        Table
-                      </span>
-                      <span className="font-bold text-[var(--color-text)]">
-                        {order.table_name || table}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+        <span className="font-bold">
+          ₹{order.service_charge}
+        </span>
+      </div>
+    )}
+
+    {order.gst_enabled && (
+      <div className="flex justify-between text-sm">
+        <span className="text-[var(--color-text-muted)]">
+          GST ({order.gst_percent}%)
+          {order.gst_mode === "inclusive"
+            ? " (Included)"
+            : ""}
+        </span>
+
+        <span className="font-bold">
+          ₹{order.gst_amount}
+        </span>
+      </div>
+    )}
+
+    {Math.abs(order.round_off) >= 0.01 && (
+      <div className="flex justify-between text-sm">
+        <span className="text-[var(--color-text-muted)]">
+          Round Off
+        </span>
+
+        <span className="font-bold">
+          {order.round_off > 0 ? "+" : ""}
+          ₹{order.round_off}
+        </span>
+      </div>
+    )}
+
+    <div className="border-t border-[var(--color-border)] pt-3">
+      <div className="flex justify-between">
+        <span className="text-lg font-black">
+          Total
+        </span>
+
+        <span className="text-2xl font-black text-[var(--color-gold)]">
+          ₹{order.total}
+        </span>
+      </div>
+    </div>
+
+    <div className="border-t border-[var(--color-border)] pt-3 flex items-center justify-between text-sm">
+      <span className="inline-flex items-center gap-2 text-[var(--color-text-muted)]">
+        <CreditCard className="size-4" />
+        Payment
+      </span>
+
+      <span
+        className={`rounded-full px-3 py-1 text-xs font-black capitalize ${
+          order.payment_status === "paid"
+            ? "bg-green-500/10 text-green-300"
+            : "bg-yellow-500/10 text-yellow-200"
+        }`}
+      >
+        {order.payment_status}
+      </span>
+    </div>
+
+    <div className="flex justify-between text-sm">
+      <span className="text-[var(--color-text-muted)]">
+        Placed
+      </span>
+
+      <span className="font-bold">
+        {formatOrderTime(order.created_at)}
+      </span>
+    </div>
+
+    <div className="flex justify-between text-sm">
+      <span className="text-[var(--color-text-muted)]">
+        Table
+      </span>
+
+      <span className="font-bold">
+        {order.table_name || table}
+      </span>
+    </div>
+
+  </div>
+</div>
 
                 <div className="rounded-[22px] border border-white/[0.07] bg-black/18 p-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-gold)]">

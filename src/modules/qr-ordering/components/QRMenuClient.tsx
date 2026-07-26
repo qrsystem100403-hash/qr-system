@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Check,
   ChevronRight,
+  Loader2,
   Mic,
   MicOff,
   Minus,
@@ -18,6 +19,9 @@ import {
 import { supabaseBrowser } from "@/lib/supabase/browser"
 import { buildCartKey, useQRCartStore } from "@/store/qrCartStore"
 import { getStoredQROrderCount } from "@/modules/qr-ordering/lib/qrOrderStorage"
+
+import { useRouter } from "next/navigation";
+
 
 type SpeechRecognitionResultEvent = {
   results: {
@@ -267,33 +271,44 @@ export default function QRMenuClient({
     variantId: null,
     addonIds: [],
   })
+  const [sessionReady, setSessionReady] = useState(false);
+const router = useRouter();
 
-  useEffect(() => {
+useEffect(() => {
   const createSession = async () => {
     try {
-      await fetch(
-        "/api/qr/session",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            tableToken,
-          }),
-        }
-      )
-    } catch (error) {
-      console.error(
-        "QR SESSION ERROR:",
-        error
-      )
-    }
-  }
+      const response = await fetch("/api/qr/session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tableToken,
+        }),
+      });
 
-  createSession()
-}, [tableToken])
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.code === "ACTIVE_SESSION_EXISTS") {
+          router.replace("/qr/session-conflict");
+          return;
+        }
+
+        router.replace(`/qr/table/${tableToken}/occupied`);
+        return;
+      }
+
+      setSessionReady(true);
+    } catch {
+      router.replace(`/qr/table/${tableToken}/occupied`);
+    }
+  };
+
+  createSession();
+}, [router, tableToken]);
+
+
 
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -577,8 +592,17 @@ export default function QRMenuClient({
 
   if (!hasHydrated) return <MenuSkeleton />
 
+  if (!sessionReady) {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-[var(--color-gold)]" />
+    </div>
+  );
+}
+
   return (
     <>
+    
       <div className="sticky top-[72px] z-20 -mx-3 border-b border-white/[0.05] bg-[var(--color-bg)]/95 px-3 pb-4 pt-3 backdrop-blur-2xl sm:-mx-4 sm:top-[82px] sm:px-4">
   <div className="mx-auto max-w-5xl">
     <div className="flex items-center justify-between gap-3">
@@ -1280,14 +1304,18 @@ export default function QRMenuClient({
               </div>
 
               <div className="min-w-0">
-                <p className="truncate text-sm font-black">
-                  {totalItems} {totalItems === 1 ? "item" : "items"} added
-                </p>
+  <p className="truncate text-sm font-black">
+    {totalItems} {totalItems === 1 ? "Item" : "Items"} in cart
+  </p>
 
-                <p className="text-sm font-black text-[var(--color-gold)]">
-                  ₹{totalAmount}
-                </p>
-              </div>
+  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">
+    Subtotal
+  </p>
+
+  <p className="text-sm font-black text-[var(--color-gold)]">
+    ₹{totalAmount.toFixed(2)}
+  </p>
+</div>
             </div>
 
             <Link

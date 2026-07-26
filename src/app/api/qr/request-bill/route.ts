@@ -1,189 +1,118 @@
-    // src/app/api/qr/request-bill/route.ts
+import { z } from "zod";
 
-    import { NextResponse } from "next/server"
-    import { z } from "zod"
-    import { supabaseAdmin } from "@/lib/supabase/admin"
-    import { createNotification } from "@/lib/createNotification"
-import { NOTIFICATION_TYPES } from "@/lib/notification-types"
-import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
+import {
+  badRequest,
+  fail,
+ notFound,
+  ok,
+} from "@/lib/api";
 
-    const schema = z.object({
-    orderId: z.string().uuid(),
-    trackingToken: z.string().trim().min(4),
-    })
+import { logger } from "@/lib/logger";
+import { resolvePublicRestaurant } from "@/modules/core/restaurants/utils/resolvePublicRestaurant";
 
-    export async function POST(request: Request) {
+import { RequestService } from "@/modules/requests";
 
-        const restaurant =
-  await resolvePublicRestaurant()
 
-if (!restaurant) {
-  return NextResponse.json(
-    {
-      success: false,
-      error: "Restaurant not found",
+const schema = z.object({
+  orderId: z.string().uuid(),
+  trackingToken: z.string().trim().min(4),
+});
+
+const requestService = new RequestService();
+
+export async function POST(request: Request) {
+  try {
+   const resolved =
+  await resolvePublicRestaurant();
+
+if (!resolved) {
+  logger.warn({
+    message:
+      "Bill requested for unknown restaurant",
+    context: {
+      module: "public-billing",
+      action: "requestBill",
     },
-    {
-      status: 404,
-    }
-  )
+  });
+
+  return notFound(
+    "Restaurant not found",
+  );
 }
-    try {
-        const body = await request.json()
 
-        const parsed = schema.safeParse(body)
+const { restaurant } = resolved;
+// If you need feature flags later:
+// const { restaurant, features } = resolved;
 
-        if (!parsed.success) {
-        return NextResponse.json(
-            {
-            success: false,
-            error: "Invalid request",
-            },
-            {
-            status: 400,
-            }
-        )
-        }
+    const body =
+      await request.json();
 
-        const { orderId, trackingToken } = parsed.data
+    const parsed =
+      schema.safeParse(body);
 
-        const { data: order, error: orderError } = await supabaseAdmin
-        .from("orders")
-        .select(`
-  id,
-  restaurant_id,
-  table_id,
-  table_name,
-  tracking_token,
-  order_status
-`)
-        .eq("id", orderId)
-        .eq("tracking_token", trackingToken.toUpperCase())
-        .single()
+    if (!parsed.success) {
+      logger.warn({
+        message:
+          "Invalid bill request payload",
+        context: {
+          module: "public-billing",
+          action: "requestBill",
+          restaurantId:
+            restaurant.id,
+          metadata: {
+            issues:
+              parsed.error.flatten(),
+          },
+        },
+      });
 
-        if (orderError || !order) {
-        return NextResponse.json(
-            {
-            success: false,
-            error: "Order not found",
-            },
-            {
-            status: 404,
-            }
-        )
-        }
+      return badRequest(
+        "Invalid request",
+        parsed.error.flatten(),
+      );
+    }
 
-        if (order.order_status === "cancelled") {
-        return NextResponse.json(
-            {
-            success: false,
-            error: "Cancelled order cannot request bill",
-            },
-            {
-            status: 400,
-            }
-        )
-        }
+    const {
+      orderId,
+      trackingToken,
+    } = parsed.data;
 
-        const { data: existingRequest } = await supabaseAdmin
-        .from("requests")
-        .select("id")
-        .eq("order_id", order.id)
-        .eq("request_type", "bill")
-        .eq("status", "pending")
-        .maybeSingle()
+    const result =
+  await requestService.requestBill({
+    restaurantId: restaurant.id,
+    orderId,
+    trackingToken,
+  });
 
-        if (existingRequest) {
-        return NextResponse.json({
-            success: true,
-            alreadyRequested: true,
-        })
-        }
+if (!result.alreadyRequested) {
+  logger.info({
+    message: "Bill requested successfully",
+    context: {
+      module: "public-billing",
+      action: "requestBill",
+      restaurantId: restaurant.id,
+      metadata: {
+        orderId: result.orderId,
+        sessionId: result.sessionId,
+      },
+    },
+  });
+}
 
-        const { error: billRequestError } = await supabaseAdmin
-        .from("requests")
-.insert({
-  restaurant_id: order.restaurant_id,
-  table_id: order.table_id,
-  table_name: order.table_name,
-  order_id: order.id,
+return ok(result);
+  } catch (error) {
+    logger.error({
+      message:
+        "Unexpected bill request error",
+      error,
+      context: {
+        module:
+          "public-billing",
+        action:
+          "requestBill",
+      },
+    });
 
-  request_type: "bill",
-
-  status: "pending",
-})
-
-        if (billRequestError) {
-        console.error(
-            "BILL REQUEST INSERT ERROR:",
-            billRequestError
-        )
-
-        return NextResponse.json(
-            {
-            success: false,
-            error: "Failed to request bill",
-            },
-            {
-            status: 500,
-            }
-        )
-        }
-
-        await createNotification({
-  restaurantId: order.restaurant_id,
-
-  type:
-    NOTIFICATION_TYPES.BILL_REQUEST,
-
-  title: "Bill Request",
-
-  message:
-    `${order.table_name} requested bill`,
-
-  entityType: "request",
-
-  entityId: order.id,
-})
-
-        if (
-  restaurant.table_workflow_mode !==
-  "expert"
-) {
-  const {
-    error: tableUpdateError,
-  } = await supabaseAdmin
-    .from("restaurant_tables")
-    .update({
-      status: "bill_requested",
-
-      last_activity_at:
-        new Date().toISOString(),
-    })
-    .eq("id", order.table_id)
-
-  if (tableUpdateError) {
-    console.error(
-      "TABLE STATUS UPDATE ERROR:",
-      tableUpdateError
-    )
+    return fail(error);
   }
 }
-
-        return NextResponse.json({
-        success: true,
-        })
-    } catch (error) {
-        console.error("REQUEST BILL ERROR:", error)
-
-        return NextResponse.json(
-        {
-            success: false,
-            error: "Failed to request bill",
-        },
-        {
-            status: 500,
-        }
-        )
-    }
-    }

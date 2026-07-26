@@ -1,0 +1,47 @@
+@page {
+  size: 80mm auto;
+  margin: 0;
+}
+
+@media print {
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  body > * {
+    display: none !important;
+  }
+
+  #receipt-print {
+    display: block !important;
+
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+
+    width: 80mm !important;
+
+    z-index: 999999 !important;
+  }
+
+  #receipt-print * {
+    visibility: visible !important;
+  }
+
+  #receipt-print .shadow-sm,
+  #receipt-print .shadow-md,
+  #receipt-print .shadow-lg,
+  #receipt-print .shadow-2xl {
+    box-shadow: none !important;
+  }
+
+  #receipt-print .rounded-2xl,
+  #receipt-print .rounded-\[28px\],
+  #receipt-print .rounded-\[30px\] {
+    border-radius: 0 !important;
+  }
+}

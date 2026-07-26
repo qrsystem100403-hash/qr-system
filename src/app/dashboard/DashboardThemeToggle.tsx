@@ -1,39 +1,71 @@
-// src/app/dashboard/DashboardThemeToggle.tsx
+"use client";
 
-"use client"
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 
-import { Moon, Sun } from "lucide-react"
-import { useTheme } from "next-themes"
-import { useEffect, useState } from "react"
+import DashboardIconButton from "../components/dashboard/ui/DashboardIconButton";
 
 export default function DashboardThemeToggle() {
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+  const { theme, setTheme } = useTheme();
+
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   if (!mounted) {
     return (
-      <button
-        type="button"
-        className="grid size-10 place-items-center rounded-xl border border-[#E4DED3] bg-[#FCFAF6]"
+      <DashboardIconButton
         aria-label="Toggle theme"
+        disabled
       />
-    )
+    );
   }
 
-  const isDark = theme === "dark"
+  const isDark = theme === "dark";
 
   return (
-    <button
-      type="button"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="grid size-10 place-items-center rounded-xl border border-[#E4DED3] bg-[#FCFAF6] text-[#667085] transition hover:bg-[#F8F5EF] hover:text-[#2F7D57] dark:border-[#2A2F35] dark:bg-[#171A1F] dark:text-[#AAB2BD] dark:hover:bg-[#20242A] dark:hover:text-[#7BC99A]"
+    <DashboardIconButton
       aria-label="Toggle theme"
+      onClick={() =>
+        setTheme(isDark ? "light" : "dark")
+      }
+      className="
+        relative
+        overflow-hidden
+      "
     >
-      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
-    </button>
-  )
+      <Sun
+        className={`
+          absolute
+          size-4
+          md:size-5
+          transition-all
+          duration-300
+          ${
+            isDark
+              ? "rotate-0 scale-100"
+              : "rotate-90 scale-0"
+          }
+        `}
+      />
+
+      <Moon
+        className={`
+          absolute
+          size-4
+          md:size-5
+          transition-all
+          duration-300
+          ${
+            isDark
+              ? "-rotate-90 scale-0"
+              : "rotate-0 scale-100"
+          }
+        `}
+      />
+    </DashboardIconButton>
+  );
 }

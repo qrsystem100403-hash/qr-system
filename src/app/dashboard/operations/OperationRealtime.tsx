@@ -1,22 +1,21 @@
-"use client"
+"use client";
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { supabaseBrowser } from "@/lib/supabase/browser"
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type Props = {
-  restaurantId: string
-}
+  restaurantId: string;
+};
 
 export default function OperationsRealtime({
   restaurantId,
 }: Props) {
-  const router = useRouter()
+  const router = useRouter();
 
   useEffect(() => {
     const channel = supabaseBrowser
       .channel(`operations-${restaurantId}`)
-
       .on(
         "postgres_changes",
         {
@@ -25,27 +24,24 @@ export default function OperationsRealtime({
           table: "requests",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        (payload) => {
-          console.log(
-            "REQUEST CHANGED",
-            payload
-          )
-
-          router.refresh()
+        () => {
+          router.refresh();
         }
       )
-
       .subscribe((status) => {
-        console.log(
-          "REQUEST CHANNEL",
-          status
-        )
-      })
+        if (status === "CHANNEL_ERROR") {
+          console.error("Operations realtime subscription failed.");
+        }
+
+        if (status === "TIMED_OUT") {
+          console.warn("Operations realtime subscription timed out.");
+        }
+      });
 
     return () => {
-      supabaseBrowser.removeChannel(channel)
-    }
-  }, [restaurantId, router])
+      void supabaseBrowser.removeChannel(channel);
+    };
+  }, [restaurantId, router]);
 
-  return null
+  return null;
 }

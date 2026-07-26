@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import { Libre_Baskerville, Manrope } from "next/font/google";
+import { Libre_Baskerville, Manrope, Geist } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner"
+import { cn } from "@/lib/utils";
 
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const libreBaskerville = Libre_Baskerville({
   subsets: ["latin"],
@@ -28,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={cn("font-sans", geist.variable)}>
       <body
         className={`${libreBaskerville.variable} ${manrope.variable} font-[var(--font-body)]`}
       >

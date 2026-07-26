@@ -1,30 +1,61 @@
-import { NextResponse } from "next/server"
-import { getMenuService } from "@/modules/qr-ordering/services/menuService"
-import { resolvePublicRestaurant } from "@/lib/resolvePublicRestaurant"
+import {
+  fail,
+  notFound,
+  ok,
+} from "@/lib/api";
+import { logger } from "@/lib/logger";
+
+import { resolvePublicRestaurant } from "@/modules/core/restaurants/utils/resolvePublicRestaurant";
+import { restaurantServices } from "@/modules/core/services";
 
 export async function GET() {
   try {
-    const restaurant = await resolvePublicRestaurant()
+    const runtime =
+      await resolvePublicRestaurant();
 
-    if (!restaurant) {
-      return NextResponse.json(
-        { success: false, error: "Restaurant not found" },
-        { status: 404 }
-      )
+    if (!runtime) {
+      logger.warn({
+        message:
+          "Public menu requested for unknown restaurant",
+        context: {
+          module: "public-menu",
+          action: "getMenu",
+        },
+      });
+
+      return notFound(
+        "Restaurant not found",
+      );
     }
 
-    const menu = await getMenuService(restaurant.id)
+    const menu =
+      await restaurantServices.menu.getPublicMenu(
+        runtime.restaurant.id,
+      );
 
-    return NextResponse.json({
-      success: true,
-      data: menu,
-    })
+    logger.info({
+      message:
+        "Public menu loaded",
+      context: {
+        module: "public-menu",
+        action: "getMenu",
+        restaurantId:
+          runtime.restaurant.id,
+      },
+    });
+
+    return ok(menu);
   } catch (error) {
-    console.error("QR MENU FETCH ERROR:", error)
+    logger.error({
+      message:
+        "Failed to load public menu",
+      error,
+      context: {
+        module: "public-menu",
+        action: "getMenu",
+      },
+    });
 
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch menu" },
-      { status: 500 }
-    )
+    return fail(error);
   }
 }

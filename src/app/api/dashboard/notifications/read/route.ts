@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server"
-import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import {
+  fail,
+  ok,
+} from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { requireRestaurantUser } from "@/lib/requireRestaurantUser";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST() {
   try {
     const { restaurant } =
-      await requireRestaurantUser()
+      await requireRestaurantUser();
 
     const { error } =
       await supabaseAdmin
@@ -15,30 +19,61 @@ export async function POST() {
         })
         .eq(
           "restaurant_id",
-          restaurant.id
+          restaurant.id,
         )
-        .eq("is_read", false)
+        .eq(
+          "is_read",
+          false,
+        );
 
     if (error) {
-      throw error
+      logger.error({
+        message:
+          "Failed to mark notifications as read",
+        error,
+        context: {
+          module:
+            "notifications",
+          action:
+            "markAllAsRead",
+          restaurantId:
+            restaurant.id,
+        },
+      });
+
+      return fail(error);
     }
 
-    return NextResponse.json({
-      success: true,
-    })
-  } catch (error) {
-    console.error(
-      "MARK NOTIFICATIONS READ ERROR:",
-      error
-    )
-
-    return NextResponse.json(
-      {
-        success: false,
+    logger.audit({
+      message:
+        "Notifications marked as read",
+      context: {
+        module:
+          "notifications",
+        action:
+          "markAllAsRead",
+        restaurantId:
+          restaurant.id,
       },
-      {
-        status: 500,
-      }
-    )
+    });
+
+    return ok(
+      undefined,
+      "Notifications marked as read.",
+    );
+  } catch (error) {
+    logger.error({
+      message:
+        "Unexpected error while marking notifications as read",
+      error,
+      context: {
+        module:
+          "notifications",
+        action:
+          "markAllAsRead",
+      },
+    });
+
+    return fail(error);
   }
 }

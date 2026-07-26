@@ -1,13 +1,16 @@
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
-type CreateNotificationInput = {
-  restaurantId: string
-  type: string
-  title: string
-  message: string
-  entityType: string
-  entityId?: string
-}
+import { DatabaseError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
+
+export type CreateNotificationInput = {
+  restaurantId: string;
+  type: string;
+  title: string;
+  message: string;
+  entityType: string;
+  entityId?: string | null;
+};
 
 export async function createNotification({
   restaurantId,
@@ -16,7 +19,7 @@ export async function createNotification({
   message,
   entityType,
   entityId,
-}: CreateNotificationInput) {
+}: CreateNotificationInput): Promise<void> {
   const { error } = await supabaseAdmin
     .from("notifications")
     .insert({
@@ -26,12 +29,27 @@ export async function createNotification({
       message,
       entity_type: entityType,
       entity_id: entityId ?? null,
-    })
+    });
 
   if (error) {
-    console.error(
-      "CREATE NOTIFICATION ERROR:",
-      error
-    )
+    logger.error({
+      message: "Failed to create notification",
+      error,
+      context: {
+        module: "notifications",
+        action: "create",
+        restaurantId,
+        metadata: {
+          type,
+          entityType,
+          entityId,
+        },
+      },
+    });
+
+    throw new DatabaseError(
+      "Failed to create notification",
+      error,
+    );
   }
 }

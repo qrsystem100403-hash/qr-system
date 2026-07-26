@@ -20,10 +20,23 @@ import {
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useQRCartStore } from "@/store/qrCartStore";
 
+type BillingSettings = {
+  gst_enabled: boolean;
+  gst_mode: "exclusive" | "inclusive";
+  gst_percent: number;
+
+  service_charge_enabled: boolean;
+  service_charge_type: "percentage" | "fixed";
+  service_charge_value: number;
+
+  round_off_enabled: boolean;
+};
+
 type Props = {
   table: string;
   tableToken: string;
   restaurantId: string;
+  billingSettings: BillingSettings;
 };
 
 type Category = {
@@ -62,6 +75,11 @@ type LiveMenuItem = {
   category_id: string | null;
   menu_item_variants?: MenuVariant[] | null;
 };
+
+const formatPrice = (value: number) =>
+  Number.isInteger(value)
+    ? value.toString()
+    : value.toFixed(2);
 
 function getCurrentMinutesIndia() {
   const parts = new Intl.DateTimeFormat("en-IN", {
@@ -133,7 +151,17 @@ export default function QRCartClient({
   table,
   tableToken,
   restaurantId,
+  billingSettings,
 }: Props) {
+  console.log("Billing Settings", billingSettings);
+  console.log("Restaurant:", restaurantId);
+
+console.log("Billing:", billingSettings);
+
+console.log(
+  "Using fallback:",
+  billingSettings == null
+);
   const router = useRouter();
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -177,11 +205,61 @@ export default function QRCartClient({
     [restaurantCart],
   );
 
-  const total = useMemo(
-    () =>
-      restaurantCart.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [restaurantCart],
+  const subtotal = useMemo(
+  () =>
+    restaurantCart.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    ),
+  [restaurantCart],
+);
+
+const serviceCharge = useMemo(() => {
+  if (!billingSettings.service_charge_enabled) return 0;
+
+  if (billingSettings.service_charge_type === "fixed") {
+    return billingSettings.service_charge_value;
+  }
+
+  return (
+    subtotal *
+    billingSettings.service_charge_value /
+    100
   );
+}, [subtotal, billingSettings]);
+
+const taxableAmount = subtotal + serviceCharge;
+
+const gstAmount = useMemo(() => {
+  if (!billingSettings.gst_enabled) return 0;
+
+  if (billingSettings.gst_mode === "inclusive") {
+    return (
+      taxableAmount -
+      taxableAmount /
+        (1 + billingSettings.gst_percent / 100)
+    );
+  }
+
+  return (
+    taxableAmount *
+    billingSettings.gst_percent /
+    100
+  );
+}, [taxableAmount, billingSettings]);
+
+const beforeRound =
+  billingSettings.gst_mode === "inclusive"
+    ? taxableAmount
+    : taxableAmount + gstAmount;
+
+const grandTotal = billingSettings.round_off_enabled
+  ? Math.round(beforeRound)
+  : beforeRound;
+
+const roundOff = grandTotal - beforeRound;
+
+const total = grandTotal;
 
   const totalItems = useMemo(
     () => restaurantCart.reduce((sum, item) => sum + item.quantity, 0),
@@ -765,22 +843,70 @@ export default function QRCartClient({
                 </p>
               </div>
 
-              <div className="mt-5 space-y-3 border-t border-[var(--color-border)] pt-4">
-                <div className="flex justify-between text-sm text-[var(--color-text-muted)]">
-                  <span>Items</span>
-                  <span>{totalItems}</span>
-                </div>
+           <div className="mt-5 space-y-3 border-t border-[var(--color-border)] pt-4">
 
-                <div className="flex justify-between text-sm text-[var(--color-text-muted)]">
-                  <span>Subtotal</span>
-                  <span>₹{total}</span>
-                </div>
+  <div className="flex justify-between text-sm text-[var(--color-text-muted)]">
+    <span>Items</span>
+    <span>{totalItems}</span>
+  </div>
 
-                <div className="flex justify-between border-t border-[var(--color-border)] pt-3 text-2xl font-black">
-                  <span>Total</span>
-                  <span className="text-[var(--color-gold)]">₹{total}</span>
-                </div>
-              </div>
+  <div className="flex justify-between text-sm text-[var(--color-text-muted)]">
+    <span>Subtotal</span>
+    <span>₹{formatPrice(subtotal)}</span>
+  </div>
+
+  {billingSettings.service_charge_enabled && (
+    <div className="flex justify-between text-sm text-[var(--color-text-muted)]">
+      <span>
+        Service Charge
+        {billingSettings.service_charge_type === "percentage"
+          ? ` (${billingSettings.service_charge_value}%)`
+          : ""}
+      </span>
+
+      <span>
+        ₹{formatPrice(serviceCharge)}
+      </span>
+    </div>
+  )}
+
+  {billingSettings.gst_enabled && (
+    <div className="flex justify-between text-sm text-[var(--color-text-muted)]">
+      <span>
+        GST ({billingSettings.gst_percent}%)
+        {billingSettings.gst_mode === "inclusive" && (
+          <span className="ml-1 text-[10px]">(Included)</span>
+        )}
+      </span>
+
+      <span>
+        {billingSettings.gst_mode === "inclusive" ? "(Incl.) " : ""}
+        ₹{formatPrice(gstAmount)}
+      </span>
+    </div>
+  )}
+
+  {billingSettings.round_off_enabled &&
+    Math.abs(roundOff) >= 0.01 && (
+      <div className="flex justify-between text-sm text-[var(--color-text-muted)]">
+        <span>Round Off</span>
+
+        <span>
+          {roundOff > 0 ? "+" : ""}
+          ₹{formatPrice(roundOff)}
+        </span>
+      </div>
+    )}
+
+  <div className="flex justify-between border-t border-[var(--color-border)] pt-3 text-2xl font-black">
+    <span>Total</span>
+
+    <span className="text-[var(--color-gold)]">
+      ₹{formatPrice(grandTotal)}
+    </span>
+  </div>
+
+</div>
 
               <button
                 type="button"

@@ -1,6 +1,10 @@
-import { NextResponse } from "next/server"
-import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import {
+  fail,
+  ok,
+} from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { requireRestaurantUser } from "@/lib/requireRestaurantUser";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(
   request: Request,
@@ -8,15 +12,16 @@ export async function POST(
     params,
   }: {
     params: Promise<{
-      id: string
-    }>
-  }
+      id: string;
+    }>;
+  },
 ) {
   try {
     const { restaurant } =
-      await requireRestaurantUser()
+      await requireRestaurantUser();
 
-    const { id } = await params
+    const { id } =
+      await params;
 
     const { error } =
       await supabaseAdmin
@@ -27,29 +32,63 @@ export async function POST(
         .eq("id", id)
         .eq(
           "restaurant_id",
-          restaurant.id
-        )
+          restaurant.id,
+        );
 
     if (error) {
-      throw error
+      logger.error({
+        message:
+          "Failed to mark notification as read",
+        error,
+        context: {
+          module:
+            "notifications",
+          action:
+            "markAsRead",
+          restaurantId:
+            restaurant.id,
+          metadata: {
+            notificationId: id,
+          },
+        },
+      });
+
+      return fail(error);
     }
 
-    return NextResponse.json({
-      success: true,
-    })
-  } catch (error) {
-    console.error(
-      "MARK NOTIFICATION READ ERROR:",
-      error
-    )
-
-    return NextResponse.json(
-      {
-        success: false,
+    logger.audit({
+      message:
+        "Notification marked as read",
+      context: {
+        module:
+          "notifications",
+        action:
+          "markAsRead",
+        restaurantId:
+          restaurant.id,
+        metadata: {
+          notificationId: id,
+        },
       },
-      {
-        status: 500,
-      }
-    )
+    });
+
+    return ok(
+      undefined,
+      "Notification marked as read.",
+    );
+  } catch (error) {
+    logger.error({
+      message:
+        "Unexpected error while marking notification as read",
+      error,
+      context: {
+        module:
+          "notifications",
+        action:
+          "markAsRead",
+      },
+    });
+
+    return fail(error);
   }
 }

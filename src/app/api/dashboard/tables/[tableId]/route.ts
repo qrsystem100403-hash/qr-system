@@ -1,164 +1,362 @@
-import { NextResponse } from "next/server"
-import { z } from "zod"
-import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
+import { z } from "zod";
 
-const ALLOWED_TABLE_ROLES = ["owner", "manager"] as const
+import {
+  badRequest,
+  conflict,
+  fail,
+  forbidden,
+  ok,
+} from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { requireRestaurantUser } from "@/lib/requireRestaurantUser";
+
+const ALLOWED_TABLE_ROLES = [
+  "owner",
+  "manager",
+] as const;
 
 const paramsSchema = z.object({
   tableId: z.string().uuid(),
-})
+});
 
 const updateTableSchema = z
   .object({
-    name: z.string().trim().min(1).max(30).optional(),
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(30)
+      .optional(),
     is_active: z.boolean().optional(),
   })
-  .refine((data) => data.name !== undefined || data.is_active !== undefined, {
-    message: "No valid fields provided",
-  })
+  .refine(
+    (data) =>
+      data.name !== undefined ||
+      data.is_active !== undefined,
+    {
+      message: "No valid fields provided",
+    },
+  );
 
 type Params = {
   params: Promise<{
-    tableId: string
-  }>
-}
+    tableId: string;
+  }>;
+};
 
 function canManageTables(role: string) {
   return ALLOWED_TABLE_ROLES.includes(
-    role as (typeof ALLOWED_TABLE_ROLES)[number]
-  )
+    role as (typeof ALLOWED_TABLE_ROLES)[number],
+  );
 }
 
 function normalizeTableName(value: string) {
-  return value.trim().replace(/\s+/g, "-")
+  return value
+    .trim()
+    .replace(/\s+/g, "-");
 }
 
-export async function PATCH(request: Request, { params }: Params) {
+export async function PATCH(
+  request: Request,
+  { params }: Params,
+) {
   try {
-    const rawParams = await params
-    const parsedParams = paramsSchema.safeParse(rawParams)
+    const rawParams =
+      await params;
+
+    const parsedParams =
+      paramsSchema.safeParse(rawParams);
 
     if (!parsedParams.success) {
-      return NextResponse.json(
-        { success: false, error: "Invalid table id" },
-        { status: 400 }
-      )
+      logger.warn({
+        message:
+          "Invalid table id",
+        context: {
+          module: "tables",
+          action: "updateTable",
+          metadata: {
+            issues:
+              parsedParams.error.flatten(),
+          },
+        },
+      });
+
+      return badRequest(
+        "Invalid table id",
+        parsedParams.error.flatten(),
+      );
     }
 
-    const { tableId } = parsedParams.data
-    const { restaurant, supabase, role } = await requireRestaurantUser()
+    const { tableId } =
+      parsedParams.data;
+
+    const {
+      restaurant,
+      supabase,
+      role,
+    } =
+      await requireRestaurantUser();
 
     if (!canManageTables(role)) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      )
+      logger.warn({
+        message:
+          "Unauthorized table update attempt",
+        context: {
+          module: "tables",
+          action: "updateTable",
+          restaurantId:
+            restaurant.id,
+          metadata: {
+            tableId,
+          },
+        },
+      });
+
+      return forbidden();
     }
 
-    const body = await request.json()
-    const parsedBody = updateTableSchema.safeParse(body)
+    const body =
+      await request.json();
+
+    const parsedBody =
+      updateTableSchema.safeParse(
+        body,
+      );
 
     if (!parsedBody.success) {
-      return NextResponse.json(
-        { success: false, error: "Invalid table data" },
-        { status: 400 }
-      )
+      logger.warn({
+        message:
+          "Invalid table update payload",
+        context: {
+          module: "tables",
+          action: "updateTable",
+          restaurantId:
+            restaurant.id,
+          metadata: {
+            tableId,
+            issues:
+              parsedBody.error.flatten(),
+          },
+        },
+      });
+
+      return badRequest(
+        "Invalid table data",
+        parsedBody.error.flatten(),
+      );
     }
 
     const updates: {
-      name?: string
-      is_active?: boolean
-    } = {}
+      name?: string;
+      is_active?: boolean;
+    } = {};
 
-    if (parsedBody.data.name !== undefined) {
-      updates.name = normalizeTableName(parsedBody.data.name)
+    if (
+      parsedBody.data.name !==
+      undefined
+    ) {
+      updates.name =
+        normalizeTableName(
+          parsedBody.data.name,
+        );
     }
 
-    if (parsedBody.data.is_active !== undefined) {
-      updates.is_active = parsedBody.data.is_active
+    if (
+      parsedBody.data.is_active !==
+      undefined
+    ) {
+      updates.is_active =
+        parsedBody.data.is_active;
     }
 
-    const { data, error } = await supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from("restaurant_tables")
       .update(updates)
       .eq("id", tableId)
-      .eq("restaurant_id", restaurant.id)
+      .eq(
+        "restaurant_id",
+        restaurant.id,
+      )
       .select(
-  "id, name, qr_token, is_active, status, last_activity_at, created_at"
-)
-      .single()
+        "id, name, qr_token, is_active, status, last_activity_at, created_at",
+      )
+      .single();
 
     if (error) {
-      console.error("SUPABASE TABLE UPDATE ERROR:", error)
+      logger.error({
+        message:
+          "Failed to update restaurant table",
+        error,
+        context: {
+          module: "tables",
+          action: "updateTable",
+          restaurantId:
+            restaurant.id,
+          metadata: {
+            tableId,
+          },
+        },
+      });
 
       if (error.code === "23505") {
-        return NextResponse.json(
-          { success: false, error: "Table name already exists" },
-          { status: 409 }
-        )
+        return conflict(
+          "Table name already exists",
+        );
       }
 
-      return NextResponse.json(
-        { success: false, error: "Failed to update table" },
-        { status: 500 }
-      )
+      return fail(error);
     }
 
-    return NextResponse.json({ success: true, table: data })
-  } catch (error) {
-    console.error("TABLE PATCH ERROR:", error)
+    logger.audit({
+      message:
+        "Restaurant table updated",
+      context: {
+        module: "tables",
+        action: "updateTable",
+        restaurantId:
+          restaurant.id,
+        metadata: {
+          tableId,
+        },
+      },
+    });
 
-    return NextResponse.json(
-      { success: false, error: "Failed to update table" },
-      { status: 500 }
-    )
+    return ok(data);
+  } catch (error) {
+    logger.error({
+      message:
+        "Unexpected error while updating table",
+      error,
+      context: {
+        module: "tables",
+        action: "updateTable",
+      },
+    });
+
+    return fail(error);
   }
 }
 
-export async function DELETE(_request: Request, { params }: Params) {
+export async function DELETE(
+  _request: Request,
+  { params }: Params,
+) {
   try {
-    const rawParams = await params
-    const parsedParams = paramsSchema.safeParse(rawParams)
+    const rawParams =
+      await params;
+
+    const parsedParams =
+      paramsSchema.safeParse(rawParams);
 
     if (!parsedParams.success) {
-      return NextResponse.json(
-        { success: false, error: "Invalid table id" },
-        { status: 400 }
-      )
+      logger.warn({
+        message:
+          "Invalid table id",
+        context: {
+          module: "tables",
+          action: "deleteTable",
+          metadata: {
+            issues:
+              parsedParams.error.flatten(),
+          },
+        },
+      });
+
+      return badRequest(
+        "Invalid table id",
+        parsedParams.error.flatten(),
+      );
     }
 
-    const { tableId } = parsedParams.data
-    const { restaurant, supabase, role } = await requireRestaurantUser()
+    const { tableId } =
+      parsedParams.data;
+
+    const {
+      restaurant,
+      supabase,
+      role,
+    } =
+      await requireRestaurantUser();
 
     if (!canManageTables(role)) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      )
+      logger.warn({
+        message:
+          "Unauthorized table deletion attempt",
+        context: {
+          module: "tables",
+          action: "deleteTable",
+          restaurantId:
+            restaurant.id,
+          metadata: {
+            tableId,
+          },
+        },
+      });
+
+      return forbidden();
     }
 
-    const { error } = await supabase
-      .from("restaurant_tables")
-      .delete()
-      .eq("id", tableId)
-      .eq("restaurant_id", restaurant.id)
+    const { error } =
+      await supabase
+        .from("restaurant_tables")
+        .delete()
+        .eq("id", tableId)
+        .eq(
+          "restaurant_id",
+          restaurant.id,
+        );
 
     if (error) {
-      console.error("SUPABASE TABLE DELETE ERROR:", error)
+      logger.error({
+        message:
+          "Failed to delete restaurant table",
+        error,
+        context: {
+          module: "tables",
+          action: "deleteTable",
+          restaurantId:
+            restaurant.id,
+          metadata: {
+            tableId,
+          },
+        },
+      });
 
-      return NextResponse.json(
-        { success: false, error: "Failed to delete table" },
-        { status: 500 }
-      )
+      return fail(error);
     }
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("TABLE DELETE ERROR:", error)
+    logger.audit({
+      message:
+        "Restaurant table deleted",
+      context: {
+        module: "tables",
+        action: "deleteTable",
+        restaurantId:
+          restaurant.id,
+        metadata: {
+          tableId,
+        },
+      },
+    });
 
-    return NextResponse.json(
-      { success: false, error: "Failed to delete table" },
-      { status: 500 }
-    )
+    return ok(
+      undefined,
+      "Table deleted successfully.",
+    );
+  } catch (error) {
+    logger.error({
+      message:
+        "Unexpected error while deleting table",
+      error,
+      context: {
+        module: "tables",
+        action: "deleteTable",
+      },
+    });
+
+    return fail(error);
   }
 }

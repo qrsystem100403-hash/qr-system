@@ -1,24 +1,23 @@
-import Link from "next/link"
+import Link from "next/link";
 import {
   Search,
-  ReceiptText,
   Clock3,
   ChefHat,
   CheckCircle2,
   LayoutList,
-} from "lucide-react"
-import type { StatusTabValue } from "./order-types"
-import { buildOrdersHref } from "./order-utils"
+} from "lucide-react";
+import type { StatusTabValue } from "./order-types";
+import { buildOrdersHref } from "./order-utils";
 
 type Props = {
-  activeStatus: StatusTabValue
-  searchQuery: string
-  counts: Record<StatusTabValue, number>
-  activeOrders: number
-  newOrders: number
-  revenue: number
-  workflowMode: string
-}
+  activeStatus: StatusTabValue;
+  searchQuery: string;
+  counts: Record<StatusTabValue, number>;
+  activeOrders: number;
+  newOrders: number;
+  revenue: number;
+  requiresReadyStage: boolean;
+};
 
 const advancedItems = [
   {
@@ -41,7 +40,7 @@ const advancedItems = [
     value: "all",
     icon: LayoutList,
   },
-] as const
+] as const;
 
 const simpleItems = [
   {
@@ -59,18 +58,21 @@ const simpleItems = [
     value: "all",
     icon: LayoutList,
   },
-] as const
+] as const;
 
 const badgeStyles = {
   pending:
-    "bg-[#FDECEC] text-[#B42318] border border-[#F3C6C2]",
+    "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20",
+
   preparing:
-    "bg-[#FFF4E5] text-[#C2410C] border border-[#FED7AA]",
+    "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
+
   ready:
-    "bg-[#E7F3EC] text-[#2F7D57] border border-[#BFE4CE]",
+    "bg-[var(--color-success-soft)] text-[var(--color-success)] border border-[var(--color-success-border)]",
+
   all:
-    "bg-[#F7F8FA] text-[#475467] border border-[#E4DED3]",
-}
+    "bg-[var(--color-surface-soft)] text-[var(--color-text-muted)] border border-[var(--color-border)]",
+};
 
 export default function StatusRail({
   activeStatus,
@@ -79,69 +81,180 @@ export default function StatusRail({
   activeOrders,
   newOrders,
   revenue,
-  workflowMode,
+  requiresReadyStage,
 }: Props) {
-  const items =
-    workflowMode === "advanced"
-      ? advancedItems
-      : simpleItems
+  const items = requiresReadyStage
+    ? advancedItems
+    : simpleItems;
 
   return (
     <aside className="flex flex-col gap-4">
-      <div className="rounded-3xl border border-[#E4DED3] bg-white p-5 dark:border-[#2A2F35] dark:bg-[#171A1F]">
-        <div className="rounded-3xl bg-[#F7FAF8] p-5 dark:bg-[#183026]">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#667085] dark:text-[#AAB2BD]">
+      <div
+        className="
+          rounded-3xl
+          border
+          border-[var(--color-border)]
+          bg-[var(--color-surface)]
+          p-5
+          shadow-[var(--shadow-sm)]
+        "
+      >
+        {/* Active Orders */}
+        <div
+          className="
+            rounded-3xl
+            border
+            border-[var(--color-border)]
+            bg-[var(--color-primary-soft)]
+            p-5
+          "
+        >
+          <p
+            className="
+              text-xs
+              font-semibold
+              uppercase
+              tracking-[0.18em]
+              text-[var(--color-text-muted)]
+            "
+          >
             Active Orders
           </p>
 
-          <h2 className="mt-2 text-5xl font-black tracking-tight text-[#111827] dark:text-[#E7E9EC]">
+          <h2
+            className="
+              mt-2
+              text-5xl
+              font-black
+              tracking-tight
+              text-[var(--color-heading)]
+            "
+          >
             {activeOrders}
           </h2>
         </div>
 
+        {/* Stats */}
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-[#BFE4CE] bg-[#E7F3EC] p-4 dark:border-[#24583D] dark:bg-[#183026]">
-            <p className="text-xs font-medium text-[#667085] dark:text-[#AAB2BD]">
+          <div
+            className="
+              rounded-2xl
+              border
+              border-[var(--color-success-border)]
+              bg-[var(--color-success-soft)]
+              p-4
+            "
+          >
+            <p
+              className="
+                text-xs
+                font-medium
+                text-[var(--color-text-muted)]
+              "
+            >
               New Orders
             </p>
 
-            <p className="mt-1 text-2xl font-black text-[#2F7D57] dark:text-[#7BC99A]">
+            <p
+              className="
+                mt-1
+                text-2xl
+                font-black
+                text-[var(--color-success)]
+              "
+            >
               {newOrders}
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[#E4DED3] bg-[#FCFAF6] p-4 dark:border-[#2A2F35] dark:bg-[#20242A]">
-            <p className="text-xs font-medium text-[#667085] dark:text-[#AAB2BD]">
+          <div
+            className="
+              rounded-2xl
+              border
+              border-[var(--color-border)]
+              bg-[var(--color-surface-soft)]
+              p-4
+            "
+          >
+            <p
+              className="
+                text-xs
+                font-medium
+                text-[var(--color-text-muted)]
+              "
+            >
               Revenue
             </p>
 
-            <p className="mt-1 text-2xl font-black text-[#111827] dark:text-[#E7E9EC]">
+            <p
+              className="
+                mt-1
+                text-2xl
+                font-black
+                text-[var(--color-heading)]
+              "
+            >
               ₹{revenue}
             </p>
           </div>
         </div>
 
+        {/* Search */}
         <form className="mt-5">
-          <div className="flex h-12 items-center gap-3 rounded-2xl border border-[#E4DED3] bg-[#FCFAF6] px-4 dark:border-[#2A2F35] dark:bg-[#20242A]">
-            <Search className="size-4 text-[#98A2B3]" />
+          <div
+            className="
+              flex
+              h-12
+              items-center
+              gap-3
+              rounded-2xl
+              border
+              border-[var(--color-border)]
+              bg-[var(--color-surface-soft)]
+              px-4
+              transition-colors
+              focus-within:border-[var(--color-primary)]
+            "
+          >
+            <Search
+              className="
+                size-4
+                text-[var(--color-text-soft)]
+              "
+            />
 
             <input
               name="q"
               defaultValue={searchQuery}
               placeholder="Search orders..."
-              className="h-full flex-1 bg-transparent text-sm text-[#111827] outline-none placeholder:text-[#98A2B3] dark:text-[#E7E9EC]"
+              className="
+                h-full
+                flex-1
+                bg-transparent
+                text-sm
+                text-[var(--color-text)]
+                placeholder:text-[var(--color-text-soft)]
+                outline-none
+              "
             />
           </div>
         </form>
 
-        <div className="my-5 h-px bg-[#E4DED3] dark:bg-[#2A2F35]" />
+        <div
+          className="
+            my-5
+            h-px
+            bg-[var(--color-border)]
+          "
+        />
 
+        {/* Navigation */}
         <div className="space-y-2">
           {items.map((item) => {
             const active =
-              activeStatus === item.value
+              activeStatus === item.value;
 
-            const Icon = item.icon
+            const Icon = item.icon;
 
             return (
               <Link
@@ -150,11 +263,27 @@ export default function StatusRail({
                   status: item.value,
                   q: searchQuery,
                 })}
-                className={`flex items-center justify-between rounded-2xl px-4 py-3 transition-all ${
-                  active
-                    ? "bg-[#E7F3EC] text-[#2F7D57] shadow-sm dark:bg-[#183026] dark:text-[#7BC99A]"
-                    : "text-[#667085] hover:bg-[#F7F8FA] dark:text-[#AAB2BD] dark:hover:bg-[#20242A]"
-                }`}
+                className={`
+                  flex
+                  items-center
+                  justify-between
+                  rounded-2xl
+                  px-4
+                  py-3
+                  transition-all
+                  ${
+                    active
+                      ? `
+                        bg-[var(--color-primary-soft)]
+                        text-[var(--color-primary)]
+                        shadow-[var(--shadow-sm)]
+                      `
+                      : `
+                        text-[var(--color-text-muted)]
+                        hover:bg-[var(--color-surface-hover)]
+                      `
+                  }
+                `}
               >
                 <div className="flex items-center gap-3">
                   <Icon className="size-4" />
@@ -165,19 +294,26 @@ export default function StatusRail({
                 </div>
 
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                    badgeStyles[
-                      item.value as keyof typeof badgeStyles
-                    ]
-                  }`}
+                  className={`
+                    rounded-full
+                    px-2.5
+                    py-1
+                    text-xs
+                    font-bold
+                    ${
+                      badgeStyles[
+                        item.value as keyof typeof badgeStyles
+                      ]
+                    }
+                  `}
                 >
                   {counts[item.value]}
                 </span>
               </Link>
-            )
+            );
           })}
         </div>
       </div>
     </aside>
-  )
+  );
 }

@@ -1,203 +1,149 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabase/admin";
-import { createNotification } from "@/lib/createNotification"
-import { NOTIFICATION_TYPES } from "@/lib/notification-types"
+
+import {
+  badRequest,
+  fail,
+  notFound,
+  ok,
+} from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { resolvePublicRestaurant } from "@/modules/core/restaurants/utils/resolvePublicRestaurant";
+import { RequestService } from "@/modules/requests";
+
+const requestService = new RequestService();
 
 const schema = z.object({
   orderId: z.string().uuid(),
   trackingToken: z.string().trim().min(4),
   requestType: z.enum([
-  "water",
-  "spoon",
-  "fork",
-  "tissue",
-  "waiter",
-  "other",
-]),
-
-customMessage: z
-  .string()
-  .trim()
-  .max(150)
-  .optional(),
+    "water",
+    "spoon",
+    "fork",
+    "tissue",
+    "waiter",
+    "other",
+  ]),
+  customMessage: z
+    .string()
+    .trim()
+    .max(150)
+    .optional(),
 });
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const resolved =
+  await resolvePublicRestaurant();
 
-    const parsed = schema.safeParse(body);
+if (!resolved) {
+  logger.warn({
+    message:
+      "Request created for unknown restaurant",
+    context: {
+      module: "public-request",
+      action: "createRequest",
+    },
+  });
+
+  return notFound(
+    "Restaurant not found",
+  );
+}
+
+const { restaurant } = resolved;
+// or:
+// const { restaurant, features } = resolved;
+
+    const body =
+      await request.json();
+
+    const parsed =
+      schema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid request",
+      logger.warn({
+        message:
+          "Invalid waiter request payload",
+        context: {
+          module: "public-request",
+          action: "createRequest",
+          restaurantId:
+            restaurant.id,
+          metadata: {
+            issues:
+              parsed.error.flatten(),
+          },
         },
-        {
-          status: 400,
-        },
+      });
+
+      return badRequest(
+        "Invalid request",
+        parsed.error.flatten(),
       );
     }
 
     const {
-  orderId,
-  trackingToken,
-  requestType,
-  customMessage,
-} = parsed.data;
+      orderId,
+      trackingToken,
+      requestType,
+      customMessage,
+    } = parsed.data;
 
-if (
-  requestType === "other" &&
-  !customMessage
-) {
-  return NextResponse.json(
-    {
-      success: false,
-      error: "Message is required",
-    },
-    {
-      status: 400,
-    }
-  );
-}
-
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from("orders")
-      .select(
-        `
-  id,
-  restaurant_id,
-  table_id,
-  table_name,
-  tracking_token,
-  order_status
-`,
-      )
-      .eq("id", orderId)
-      .eq("tracking_token", trackingToken.toUpperCase())
-      .single();
-
-    if (orderError || !order) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Order not found",
-        },
-        {
-          status: 404,
-        },
+    if (
+      requestType === "other" &&
+      !customMessage
+    ) {
+      return badRequest(
+        "Message is required",
       );
     }
 
-    if (order.order_status === "cancelled") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Order cancelled",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+    const result =
+      await requestService.requestCustomerAssistance({
+        restaurantId: restaurant.id,
+        orderId,
+        trackingToken,
+        requestType,
+        customMessage,
+      });
 
-    const { data: existingRequest } = await supabaseAdmin
-      .from("requests")
-      .select("id")
-      .eq("order_id", order.id)
-      .eq("request_type", requestType)
-      .eq("status", "pending")
-      .maybeSingle();
-
-    if (existingRequest) {
-      return NextResponse.json({
-        success: true,
-        alreadyRequested: true,
+    if (!result.alreadyRequested) {
+      logger.info({
+        message:
+          "Waiter request created",
+        context: {
+          module:
+            "public-request",
+          action:
+            "createRequest",
+          restaurantId:
+            restaurant.id,
+          metadata: {
+            orderId:
+              result.orderId,
+            sessionId:
+              result.sessionId,
+            requestType:
+              result.requestType,
+          },
+        },
       });
     }
 
-    const { error: insertError } = await supabaseAdmin
-      .from("requests")
-      .insert({
-  restaurant_id: order.restaurant_id,
-  table_id: order.table_id,
-  table_name: order.table_name,
-  order_id: order.id,
-  request_type: requestType,
-  custom_message:
-    requestType === "other"
-      ? customMessage
-      : null,
-  status: "pending",
-});
-
-
-    if (insertError) {
-      console.error("WAITER REQUEST INSERT ERROR:", insertError);
-
-      
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to request assistance",
-        },
-        {
-          status: 500,
-        },
-      );
-
-
-    }
-
-   await createNotification({
-  restaurantId: order.restaurant_id,
-
-  type:
-    NOTIFICATION_TYPES.WAITER_REQUEST,
-
-  title:
-    requestType === "other"
-      ? "💬 Custom Request"
-      : `${requestType
-          .charAt(0)
-          .toUpperCase()}${requestType.slice(1)} Request`,
-
-  message:
-    requestType === "other"
-      ? `${order.table_name} • ${customMessage}`
-      : `${order.table_name} requested ${requestType}`,
-
-  entityType: "request",
-})
-   
-
-
-
-
-
-    await supabaseAdmin
-      .from("restaurant_tables")
-      .update({
-        last_activity_at: new Date().toISOString(),
-      })
-      .eq("id", order.table_id);
-
-    return NextResponse.json({
-      success: true,
-    });
+    return ok(result);
   } catch (error) {
-    console.error("WAITER REQUEST ERROR:", error);
+    logger.error({
+      message:
+        "Unexpected waiter request error",
+      error,
+      context: {
+        module:
+          "public-request",
+        action:
+          "createRequest",
+      },
+    });
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to request assistance",
-      },
-      {
-        status: 500,
-      },
-    );
+    return fail(error);
   }
 }

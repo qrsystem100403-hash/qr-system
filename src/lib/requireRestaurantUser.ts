@@ -1,60 +1,171 @@
-// src/lib/requireRestaurantUser.ts
+import { redirect } from "next/navigation";
 
-import { redirect } from "next/navigation"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
-import { resolveRestaurant } from "@/lib/restaurantResolver"
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveRestaurant } from "@/lib/restaurantResolver";
+import { logger } from "@/lib/logger";
+
+import { RestaurantFeatureService } from "@/modules/core/restaurants/services/restaurant-feature.service";
+
 import {
+  ROLES,
   VALID_ROLES,
   type RestaurantRole,
-  ROLES,
-} from "@/lib/auth/roles"
+} from "@/lib/auth/roles";
 
-
+const restaurantFeatureService =
+  new RestaurantFeatureService();
 
 export async function requireRestaurantUser() {
-  const restaurant = await resolveRestaurant()
-  const supabase = await createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient();
+
+  const [restaurant, authResult] =
+    await Promise.all([
+      resolveRestaurant(),
+      supabase.auth.getUser(),
+    ]);
+
+  const features =
+    await restaurantFeatureService.getFeatures(
+      restaurant.id,
+    );
 
   const {
     data: { user },
     error: userError,
-  } = await supabase.auth.getUser()
+  } = authResult;
 
   if (userError || !user) {
-    redirect("/login")
+    logger.warn({
+  message: "Unauthorized access attempt",
+  context: {
+    module: "auth",
+    action: "requireRestaurantUser",
+    restaurantId: restaurant.id,
+  },
+});
+
+    redirect("/login");
   }
 
-  const { data: restaurantUser, error } = await supabase
+  const {
+    data: membership,
+    error: membershipError,
+  } = await supabase
     .from("restaurant_users")
-    .select("id, role")
+    .select(`
+      id,
+      role,
+      is_active,
+      attendance_shift_start,
+      attendance_shift_end
+    `)
     .eq("restaurant_id", restaurant.id)
     .eq("user_id", user.id)
-    .single()
+    .maybeSingle();
 
-  if (error || !restaurantUser) {
-    redirect("/login")
+  if (membershipError) {
+    logger.error({
+  message: "Failed to fetch restaurant membership",
+  error: membershipError,
+  context: {
+    module: "auth",
+    action: "loadMembership",
+    restaurantId: restaurant.id,
+    userId: user.id,
+  },
+});
   }
 
-  const role = restaurantUser.role
+  const {
+    data: profile,
+    error: profileError,
+  } = await supabase
+    .from("users")
+    .select("id, full_name, is_active")
+    .eq("id", user.id)
+    .maybeSingle();
 
-if (!VALID_ROLES.includes(role as RestaurantRole)) {
-  redirect("/login")
-}
+  if (profileError) {
+    logger.error({
+  message: "Failed to fetch user profile",
+  error: profileError,
+  context: {
+    module: "auth",
+    action: "loadProfile",
+    restaurantId: restaurant.id,
+    userId: user.id,
+  },
+});
+  }
+
+  if (
+    !membership ||
+    !VALID_ROLES.includes(
+      membership.role as RestaurantRole,
+    )
+  ) {
+    logger.warn({
+  message: "Unauthorized restaurant membership",
+  context: {
+    module: "auth",
+    action: "validateMembership",
+    restaurantId: restaurant.id,
+    userId: user.id,
+  },
+});
+
+    redirect("/login");
+  }
+
+  if (
+    profile?.is_active === false ||
+    membership.is_active === false
+  ) {
+    logger.warn({
+  message: "Disabled account attempted login",
+  context: {
+    module: "auth",
+    action: "accountDisabled",
+    restaurantId: restaurant.id,
+    userId: user.id,
+  },
+});
+
+    await supabase.auth.signOut();
+
+    redirect(
+      "/login?error=account_disabled",
+    );
+  }
 
   return {
-  restaurant,
-  user,
-  role: role as RestaurantRole,
-  supabase,
-}
+    restaurant,
+    features,
+    supabase,
+    user,
+    profile,
+    restaurantUser: membership,
+    role: membership.role as RestaurantRole,
+  };
 }
 
 export async function requireOwnerUser() {
-  const session = await requireRestaurantUser()
+  const session =
+    await requireRestaurantUser();
 
   if (session.role !== ROLES.OWNER) {
-    redirect("/dashboard/orders")
+    logger.warn({
+  message: "Owner route accessed without permission",
+  context: {
+    module: "auth",
+    action: "requireOwnerUser",
+    restaurantId: session.restaurant.id,
+    userId: session.user.id,
+  },
+});
+
+    redirect("/dashboard/orders");
   }
 
-  return session
+  return session;
 }

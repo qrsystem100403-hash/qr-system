@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Check } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Check,
+  ChevronDown,
+  FolderTree,
+} from "lucide-react";
 
 type Category = {
   id: string;
@@ -20,180 +25,249 @@ export default function CategoryDropdown({
   categories,
   activeCategory,
 }: Props) {
-  const [open, setOpen] =
-    useState(false);
+  const [open, setOpen] = useState(false);
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const selected =
     activeCategory === "all"
       ? "All Categories"
       : categories.find(
-          (category) =>
-            category.id ===
-            activeCategory
+          (category) => category.id === activeCategory,
         );
 
+  const handleSelect = (categoryId: string) => {
+    const params = new URLSearchParams(
+      searchParams.toString(),
+    );
+
+    if (categoryId === "all") {
+      params.delete("category");
+    } else {
+      params.set("category", categoryId);
+    }
+
+    router.push(`?${params.toString()}`);
+
+    setOpen(false);
+  };
+
   return (
-  <div className="relative lg:w-72">
-    <input
-      type="hidden"
-      name="category"
-      value={activeCategory}
-    />
+    <div className="relative w-full sm:w-72">
 
-    <button
-      type="button"
-      onClick={() =>
-        setOpen(!open)
-      }
-      className="
-        flex
-        h-12
-        w-full
-        items-center
-        justify-between
-        rounded-2xl
-        border
-        border-[#E4DED3]
-        bg-white
-        px-4
-        text-sm
-        font-medium
-        text-[#111827]
-        shadow-sm
-        transition
-        hover:border-[#D0D5DD]
-        dark:border-[#2A2F35]
-        dark:bg-[#171A1F]
-        dark:text-[#E7E9EC]
-        dark:hover:border-[#3A4048]
-      "
-    >
-      <span className="truncate">
-        {typeof selected === "string"
-          ? selected
-          : selected?.parent?.name
-          ? `${selected.parent.name} • ${selected.name}`
-          : selected?.name}
-      </span>
-
-      <ChevronDown
-        className={`size-4 transition-transform duration-200 ${
-          open
-            ? "rotate-180"
-            : ""
-        }`}
+      <input
+        type="hidden"
+        name="category"
+        value={activeCategory}
       />
-    </button>
 
-    {open && (
-      <div
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
         className="
-          absolute
-          top-14
-          z-50
+          group
+          flex
+          h-12
           w-full
-          overflow-hidden
-          rounded-2xl
+          items-center
+          justify-between
+          rounded-xl
           border
-          border-[#E4DED3]
-          bg-white
-          shadow-xl
-          dark:border-[#2A2F35]
-          dark:bg-[#171A1F]
+          border-[var(--color-border)]
+          bg-[var(--color-surface)]
+          px-4
+          transition-all
+          duration-200
+          hover:border-[var(--color-primary)]
+          hover:shadow-md
         "
       >
-        <div
-          className="
-            sticky
-            top-0
-            z-10
-            border-b
-            border-[#E4DED3]
-            bg-white
-            px-4
-            py-3
-            text-[11px]
-            font-semibold
-            uppercase
-            tracking-wider
-            text-[#667085]
-            dark:border-[#2A2F35]
-            dark:bg-[#171A1F]
-            dark:text-[#AAB2BD]
-          "
-        >
-          Categories
-        </div>
+        <div className="flex min-w-0 items-center gap-3">
 
-        <div
-          className="
-            max-h-[320px]
-            overflow-y-auto
-            scroll-smooth
-          "
-        >
-          <a
-            href="/dashboard/menu"
+          <div
             className="
               flex
+              h-8
+              w-8
               items-center
-              justify-between
-              px-4
-              py-3
-              text-sm
-              text-[#111827]
-              transition
-              hover:bg-[#F7F8FA]
-              dark:text-[#E7E9EC]
-              dark:hover:bg-[#20242A]
+              justify-center
+              rounded-lg
+              bg-[var(--color-primary-soft)]
+              text-[var(--color-primary)]
             "
           >
-            <span>
-              All Categories
-            </span>
+            <FolderTree className="size-4" />
+          </div>
 
-            {activeCategory ===
-              "all" && (
-              <Check className="size-4 text-[#2F7D57] dark:text-[#7BC99A]" />
-            )}
-          </a>
+          <div className="min-w-0 text-left">
 
-          {categories.map(
-            (category) => (
-              <a
-                key={category.id}
-                href={`?category=${category.id}`}
-                className="
+            <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-text-soft)]">
+              Category
+            </p>
+
+            <p className="truncate text-sm font-semibold text-[var(--color-heading)]">
+              {typeof selected === "string"
+                ? selected
+                : selected?.parent?.name
+                ? `${selected.parent.name} • ${selected.name}`
+                : selected?.name}
+            </p>
+
+          </div>
+
+        </div>
+
+        <ChevronDown
+          className={`
+            size-4
+            text-[var(--color-text-muted)]
+            transition-all
+            duration-300
+            ${
+              open
+                ? "rotate-180 text-[var(--color-primary)]"
+                : ""
+            }
+          `}
+        />
+      </button>
+
+      {open && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setOpen(false)}
+          />
+
+          <div
+            className="
+              absolute
+              right-0
+              top-14
+              z-50
+              w-full
+              min-w-[340px]
+              overflow-hidden
+              rounded-2xl
+              border
+              border-[var(--color-border)]
+              bg-[var(--color-surface)]
+              shadow-2xl
+            "
+          >
+
+            <div
+              className="
+                border-b
+                border-[var(--color-border)]
+                bg-[var(--color-surface-soft)]
+                px-5
+                py-3
+              "
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-text-soft)]">
+                {categories.length} Categories
+              </p>
+            </div>
+
+            <div className="max-h-80 overflow-y-auto p-2">
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleSelect("all")
+                }
+                className={`
+                  mb-1
                   flex
+                  w-full
                   items-center
                   justify-between
+                  rounded-xl
                   px-4
                   py-3
-                  text-sm
-                  text-[#111827]
-                  transition
-                  hover:bg-[#F7F8FA]
-                  dark:text-[#E7E9EC]
-                  dark:hover:bg-[#20242A]
-                "
+                  text-left
+                  transition-all
+                  duration-200
+                  ${
+                    activeCategory === "all"
+                      ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
+                      : "text-[var(--color-heading)] hover:bg-[var(--color-surface-soft)]"
+                  }
+                `}
               >
-                <span className="truncate pr-3">
-                  {category.parent
-                    ?.name
-                    ? `${category.parent.name} • ${category.name}`
-                    : category.name}
-                </span>
+                <div>
 
-                {activeCategory ===
-                  category.id && (
-                  <Check className="size-4 shrink-0 text-[#2F7D57] dark:text-[#7BC99A]" />
+                  <p className="font-semibold">
+                    All Categories
+                  </p>
+
+                  <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
+                    View complete menu
+                  </p>
+
+                </div>
+
+                {activeCategory === "all" && (
+                  <Check className="size-4" />
                 )}
-              </a>
-            )
-          )}
-        </div>
-      </div>
-    )}
-  </div>
-);
+              </button>
+
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() =>
+                    handleSelect(category.id)
+                  }
+                  className={`
+                    mb-1
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    rounded-xl
+                    px-4
+                    py-3
+                    text-left
+                    transition-all
+                    duration-200
+                    ${
+                      activeCategory === category.id
+                        ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
+                        : "text-[var(--color-heading)] hover:bg-[var(--color-surface-soft)]"
+                    }
+                  `}
+                >
+
+                  <div className="min-w-0">
+
+                    <p className="truncate font-semibold">
+                      {category.name}
+                    </p>
+
+                    {category.parent?.name && (
+                      <p className="mt-0.5 truncate text-xs text-[var(--color-text-muted)]">
+                        {category.parent.name}
+                      </p>
+                    )}
+
+                  </div>
+
+                  {activeCategory ===
+                    category.id && (
+                    <Check className="size-4 shrink-0" />
+                  )}
+
+                </button>
+              ))}
+
+            </div>
+
+          </div>
+        </>
+      )}
+    </div>
+  );
 }

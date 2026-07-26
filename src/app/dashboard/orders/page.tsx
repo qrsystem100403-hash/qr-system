@@ -1,20 +1,35 @@
-import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
-import OrderQueue from "./_components/OrderQueue"
-import OrderDetailsPanel from "./_components/OrderDetailsPanel"
+import { Inbox } from "lucide-react";
+
+import { requireRestaurantUser } from "@/lib/requireRestaurantUser";
+
+import OrderRealtime from "./OrderRealtime";
+import StatusRail from "./_components/StatusRail";
+import LiveQueue from "./_components/LiveQueue";
+import OrderInspector from "./_components/inspector/OrderInspector";
+import OrdersHeader from "./_components/OrdersHeader";
+
+import { getWorkflowConfig } from "@/lib/orders/workflow-config";
+
+import { can } from "@/lib/auth/can";
+import { forbidden } from "next/navigation";
+
+import { orderService } from "@/modules/orders/services/order.service";
+
+import { getCapabilities } from "@/lib/auth/capabilities";
+
 import type {
-  Order,
   StatusTabValue,
-} from "./_components/order-types"
-import OrdersRealtime from "./OrdersRealtime"
-import StatusRail from "./_components/StatusRail"
+} from "./_components/order-types";
+
+import MobileOrdersView from "./_components/mobile/MobileOrdersView";
 
 type Props = {
   searchParams?: Promise<{
-    status?: StatusTabValue
-    selected?: string
-    q?: string
-  }>
-}
+    status?: StatusTabValue;
+    selected?: string;
+    q?: string;
+  }>;
+};
 
 function isValidStatus(
   value: unknown
@@ -26,257 +41,222 @@ function isValidStatus(
     value === "served" ||
     value === "cancelled" ||
     value === "all"
-  )
+  );
 }
 
 export default async function OrdersPage({
   searchParams,
 }: Props) {
-  const { supabase, restaurant } =
-    await requireRestaurantUser()
+ const {
+  restaurant,
+  role,
+  features,
+} = await requireRestaurantUser();
 
-  const params = await searchParams
+const capabilities =
+  getCapabilities(
+    role,
+    features,
+  );
+
+  const workflowConfig =
+  getWorkflowConfig(features);
+
+    if (!can(role, "orders")) {
+  forbidden();
+}
+
+
+  const params = await searchParams;
 
   const activeStatus: StatusTabValue =
     isValidStatus(params?.status)
       ? params.status
-      : "pending"
+      : "pending";
 
-  const selectedId = params?.selected
+  const selectedId = params?.selected;
 
   const searchQuery =
-    params?.q?.trim() ?? ""
+    params?.q?.trim() ?? "";
 
-  const baseSelect = `
-    id,
-    order_type,
-    table_name,
-    customer_name,
-    customer_phone,
-    address,
-    tracking_token,
-    total,
-    payment_status,
-    order_status,
-    customer_note,
-    cancel_reason,
-    created_at,
-    order_items (
-      id,
-      qty,
-      item_price,
-      item_name,
-      variant_name,
-      order_item_addons (
-        id,
-        addon_name,
-        addon_price
-      )
-    )
-  `
+ 
 
-  const {
-    data: allData,
-    error: allError,
-  } = await supabase
-    .from("orders")
-    .select(baseSelect)
-    .eq(
-      "restaurant_id",
-      restaurant.id
-    )
-    .order("created_at", {
-      ascending: false,
-    })
+  
 
-  if (allError) {
-    return (
-      <div className="rounded-2xl border border-[#F3C6C2] bg-[#FDECEC] p-4 text-sm font-semibold text-[#B42318]">
-        Failed to load orders:{" "}
-        {allError.message}
-      </div>
-    )
-  }
+ 
+const {
+  orders,
+  selectedOrder,
+  counts,
+  revenue,
+} =
+  await orderService.getDashboardData(
+    restaurant.id,
+    activeStatus,
+    searchQuery,
+    selectedId,
+  );
+ 
+const activeOrders =
+  counts.pending +
+  counts.preparing +
+  counts.ready;
 
-  const allOrders =
-    (allData ?? []) as Order[]
-
-  let orders = allOrders
-
-  if (activeStatus !== "all") {
-    orders = orders.filter(
-      (order) =>
-        order.order_status ===
-        activeStatus
-    )
-  }
-
-  if (searchQuery) {
-    const q =
-      searchQuery.toLowerCase()
-
-    orders = orders.filter(
-      (order) =>
-        order.tracking_token
-          ?.toLowerCase()
-          .includes(q) ||
-        order.table_name
-          ?.toLowerCase()
-          .includes(q) ||
-        order.customer_name
-          ?.toLowerCase()
-          .includes(q) ||
-        order.customer_phone
-          ?.toLowerCase()
-          .includes(q)
-    )
-  }
-
-  const selectedOrder =
-    orders.find(
-      (order) =>
-        order.id === selectedId
-    ) ??
-    orders[0] ??
-    null
-
-  const todayStart = new Date()
-
-  todayStart.setHours(
-    0,
-    0,
-    0,
-    0
-  )
-
-  const todayOrders =
-    allOrders.filter(
-      (order) =>
-        new Date(
-          order.created_at
-        ) >= todayStart
-    )
-
-  const counts = {
-    pending: allOrders.filter(
-      (order) =>
-        order.order_status ===
-        "pending"
-    ).length,
-
-    preparing: allOrders.filter(
-      (order) =>
-        order.order_status ===
-        "preparing"
-    ).length,
-
-    ready: allOrders.filter(
-      (order) =>
-        order.order_status ===
-        "ready"
-    ).length,
-
-    served: allOrders.filter(
-      (order) =>
-        order.order_status ===
-        "served"
-    ).length,
-
-    cancelled: allOrders.filter(
-      (order) =>
-        order.order_status ===
-        "cancelled"
-    ).length,
-
-    all: allOrders.length,
-  }
-
-  const activeOrders =
-    counts.pending +
-    counts.preparing +
-    counts.ready
-
-  const revenue =
-    todayOrders
-      .filter(
-        (order) =>
-          order.order_status ===
-          "served"
-      )
-      .reduce(
-        (sum, order) =>
-          sum +
-          Number(order.total),
-        0
-      )
-
+ 
   return (
     <>
-      <OrdersRealtime
-        restaurantId={
-          restaurant.id
+  <OrdersHeader />
+
+  <OrderRealtime
+    restaurantId={restaurant.id}
+  />
+
+  {/* Mobile & Tablet */}
+
+  <div className="lg:hidden">
+    <MobileOrdersView
+      orders={orders}
+      activeStatus={activeStatus}
+      searchQuery={searchQuery}
+      counts={counts}
+      requiresReadyStage={workflowConfig.requiresReadyStage}
+      capabilities={capabilities}
+    />
+  </div>
+
+  {/* Desktop */}
+
+  <section
+    className="
+      hidden
+      lg:grid
+      lg:h-[calc(100vh-135px)]
+      lg:grid-cols-[320px_minmax(0,1fr)_440px]
+      lg:gap-5
+    "
+  >
+    {/* Sidebar */}
+
+    <aside
+      className="
+        sticky
+        top-2
+        h-fit
+      "
+    >
+      <StatusRail
+        activeStatus={activeStatus}
+        searchQuery={searchQuery}
+        counts={counts}
+        activeOrders={activeOrders}
+        newOrders={counts.pending}
+        revenue={revenue}
+        requiresReadyStage={
+          workflowConfig.requiresReadyStage
         }
       />
+    </aside>
 
-      <section
-        className="
-          flex
-          flex-col
-          gap-5
+    {/* Queue */}
 
-          xl:grid
-          xl:min-h-[calc(100vh-118px)]
-          xl:grid-cols-[280px_minmax(0,1fr)_360px]
-        "
-      >
-        <div className="xl:sticky xl:top-5 xl:h-fit">
-          <StatusRail
-            activeStatus={
-              activeStatus
+    <main
+      className="
+        min-w-0
+        overflow-hidden
+        rounded-[var(--radius-xl)]
+        border
+        border-[var(--color-border)]
+        bg-[var(--color-surface)]
+        shadow-[var(--shadow-sm)]
+      "
+    >
+      <LiveQueue
+        orders={orders}
+        selectedOrderId={selectedOrder?.id}
+        activeStatus={activeStatus}
+        searchQuery={searchQuery}
+        requiresReadyStage={
+          workflowConfig.requiresReadyStage
+        }
+        capabilities={capabilities}
+      />
+    </main>
+
+    {/* Inspector */}
+
+    <aside
+      className="
+        sticky
+        top-24
+        h-[calc(100vh-135px)]
+      "
+    >
+      {selectedOrder ? (
+        <div
+          className="
+            h-full
+            overflow-hidden
+            rounded-[var(--radius-xl)]
+            border
+            border-[var(--color-border)]
+            bg-[var(--color-surface)]
+            shadow-[var(--shadow-sm)]
+          "
+        >
+          <OrderInspector
+            order={selectedOrder}
+            requiresReadyStage={
+              workflowConfig.requiresReadyStage
             }
-            searchQuery={
-              searchQuery
-            }
-            counts={counts}
-            workflowMode={
-              restaurant.workflow_mode
-            }
-            activeOrders={
-              activeOrders
-            }
-            newOrders={
-              counts.pending
-            }
-            revenue={revenue}
+            capabilities={capabilities}
           />
         </div>
+      ) : (
+        <div
+          className="
+            flex
+            h-full
+            flex-col
+            items-center
+            justify-center
+            rounded-[var(--radius-xl)]
+            border
+            border-dashed
+            border-[var(--color-border)]
+            bg-[var(--color-surface)]
+          "
+        >
+          <Inbox className="size-12 text-[var(--color-text-soft)]" />
 
-        <div className="min-w-0">
-          <OrderQueue
-            orders={orders}
-            selectedOrderId={
-              selectedOrder?.id
-            }
-            activeStatus={
-              activeStatus
-            }
-            searchQuery={
-              searchQuery
-            }
-          />
-        </div>
+          <h3
+            className="
+              mt-5
+              text-xl
+              font-semibold
+              text-[var(--color-heading)]
+            "
+          >
+            No Order Selected
+          </h3>
 
-        <div className="hidden xl:block">
-          <OrderDetailsPanel
-            order={
-              selectedOrder
-            }
-            workflowMode={
-              restaurant.workflow_mode
-            }
-          />
+          <p
+            className="
+              mt-2
+              max-w-xs
+              text-center
+              text-sm
+              leading-6
+              text-[var(--color-text-muted)]
+            "
+          >
+            Select an order from the queue to inspect
+            customer details, ordered items and workflow
+            actions.
+          </p>
         </div>
-      </section>
-    </>
-  )
+      )}
+    </aside>
+  </section>
+</>
+  );
 }

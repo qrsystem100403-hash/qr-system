@@ -1,43 +1,72 @@
-import { NextResponse } from "next/server"
-import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
+import {
+  fail,
+  ok,
+} from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { requireRestaurantUser } from "@/lib/requireRestaurantUser";
+import { RequestService } from "@/modules/requests";
+
+const requestService =
+  new RequestService();
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  {
+    params,
+  }: {
+    params: Promise<{
+      id: string;
+    }>;
+  },
 ) {
   try {
-    const { id } = await params
+    const { id } =
+      await params;
 
-    const { restaurant, supabase } =
-      await requireRestaurantUser()
+    const {
+      restaurant,
+      restaurantUser,
+    } =
+      await requireRestaurantUser();
 
-    const { error } = await supabase
-      .from("requests")
-      .update({
-        status: "resolved",
-        resolved_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .eq("restaurant_id", restaurant.id)
+    await requestService.resolveRequest(
+  restaurant.id,
+  id,
+);
 
-    if (error) {
-      return NextResponse.json(
-        {
-          success: false,
+    logger.audit({
+      message:
+        "Customer request resolved",
+      context: {
+        module: "requests",
+        action:
+          "resolveRequest",
+        restaurantId:
+          restaurant.id,
+        userId:
+          restaurantUser.id,
+        metadata: {
+          requestId: id,
         },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-    })
-  } catch {
-    return NextResponse.json(
-      {
-        success: false,
       },
-      { status: 500 }
-    )
+    });
+
+    return ok(
+      undefined,
+      "Request resolved successfully.",
+    );
+  } catch (error) {
+    logger.error({
+      message:
+        "Unexpected error while resolving request",
+      error,
+      context: {
+        module: "requests",
+        action:
+          "resolveRequest",
+      },
+    });
+
+    return fail(error);
   }
 }

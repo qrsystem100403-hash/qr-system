@@ -1,23 +1,23 @@
-"use client"
+"use client";
 
-import { supabaseBrowser } from "@/lib/supabase/browser"
-import { Loader2, LogOut } from "lucide-react"
-import { useState } from "react"
+import { useState } from "react";
+import { Loader2, LogOut } from "lucide-react";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 
 export default function LogoutButton() {
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false);
 
-  const handleLogout = async () => {
-    if (loading) return
+  async function handleLogout() {
+    if (loading) return;
 
-    setLoading(true)
+    setLoading(true);
 
     try {
-      await supabaseBrowser.auth.signOut()
-      window.location.href = "/login"
+      await supabaseBrowser.auth.signOut();
+      window.location.href = "/login";
     } catch (error) {
-      console.error("LOGOUT ERROR:", error)
-      setLoading(false)
+      console.error("LOGOUT ERROR:", error);
+      setLoading(false);
     }
   }
 
@@ -27,19 +27,53 @@ export default function LogoutButton() {
       onClick={handleLogout}
       disabled={loading}
       aria-busy={loading}
-      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#E4DED3] bg-[#FCFAF6] px-3 text-xs font-bold text-[#667085] transition hover:border-[#F3C6C2] hover:bg-[#FDECEC] hover:text-[#B42318] disabled:pointer-events-none disabled:opacity-50 dark:border-[#2A2F35] dark:bg-[#171A1F] dark:text-[#AAB2BD] dark:hover:border-[#5B2A2A] dark:hover:bg-[#2A1A1A] dark:hover:text-[#FCA5A5]"
+      className="
+        group
+        inline-flex
+        h-11
+        w-full
+        items-center
+        justify-center
+        gap-2
+        rounded-xl
+        border
+        border-[var(--color-border)]
+        bg-[var(--color-surface)]
+        px-4
+        text-sm
+        font-semibold
+        text-[var(--color-text)]
+        shadow-[var(--shadow-xs)]
+        transition-all
+        duration-200
+        hover:border-red-300
+        hover:bg-red-50
+        hover:text-red-600
+        hover:shadow-[var(--shadow-sm)]
+        active:scale-[0.98]
+        disabled:pointer-events-none
+        disabled:opacity-50
+        dark:hover:border-red-900/40
+        dark:hover:bg-red-500/10
+        dark:hover:text-red-400
+      "
     >
       {loading ? (
         <Loader2 className="size-4 animate-spin" />
       ) : (
-        <LogOut className="size-4" />
+        <LogOut
+          className="
+            size-4
+            transition-transform
+            duration-200
+            group-hover:-translate-x-0.5
+          "
+        />
       )}
 
-      <span className="hidden sm:inline">
-        {loading ? "Logging out..." : "Logout"}
+      <span className="hidden sm:block">
+        {loading ? "Signing Out..." : "Logout"}
       </span>
-
-      <span className="sm:hidden">{loading ? "..." : "Out"}</span>
     </button>
-  )
+  );
 }

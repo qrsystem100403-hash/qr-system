@@ -1,169 +1,216 @@
-import { NextResponse } from "next/server"
-import { z } from "zod"
-import { requireRestaurantUser } from "@/lib/requireRestaurantUser"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import { z } from "zod";
+
+import {
+  badRequest,
+  fail,
+  forbidden,
+  ok,
+} from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { requireRestaurantUser } from "@/lib/requireRestaurantUser";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const schema = z.object({
   workflow_mode: z.enum([
     "simple",
     "advanced",
   ]),
-
   table_workflow_mode: z.enum([
     "simple",
     "advanced",
     "expert",
   ]),
-})
+});
 
 const ALLOWED_ROLES = [
   "owner",
   "manager",
-] as const
+] as const;
 
-function canManageSettings(role: string) {
+function canManageSettings(
+  role: string,
+) {
   return ALLOWED_ROLES.includes(
-    role as (typeof ALLOWED_ROLES)[number]
-  )
+    role as (typeof ALLOWED_ROLES)[number],
+  );
 }
 
 export async function GET() {
   try {
     const {
       restaurant,
-    } = await requireRestaurantUser()
+      restaurantUser,
+    } =
+      await requireRestaurantUser();
 
-    return NextResponse.json({
-      success: true,
-      settings: {
-        workflow_mode:
-          restaurant.workflow_mode,
-
-        table_workflow_mode:
-          restaurant.table_workflow_mode,
+    logger.info({
+      message:
+        "Workflow settings loaded",
+      context: {
+        module: "settings",
+        action:
+          "getWorkflowSettings",
+        restaurantId:
+          restaurant.id,
+        userId:
+          restaurantUser.id,
       },
-    })
+    });
+
+    return ok({
+      workflow_mode:
+        restaurant.workflow_mode,
+      table_workflow_mode:
+        restaurant.table_workflow_mode,
+    });
   } catch (error) {
-    console.error(
-      "WORKFLOW SETTINGS GET ERROR:",
-      error
-    )
-
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          "Failed to load settings",
+    logger.error({
+      message:
+        "Failed to load workflow settings",
+      error,
+      context: {
+        module: "settings",
+        action:
+          "getWorkflowSettings",
       },
-      {
-        status: 500,
-      }
-    )
+    });
+
+    return fail(error);
   }
 }
 
 export async function PATCH(
-  request: Request
+  request: Request,
 ) {
   try {
     const {
       restaurant,
-      supabase,
+      restaurantUser,
       role,
-    } = await requireRestaurantUser()
+    } =
+      await requireRestaurantUser();
 
-    if (!canManageSettings(role)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Forbidden",
+    if (
+      !canManageSettings(role)
+    ) {
+      logger.warn({
+        message:
+          "Unauthorized workflow settings update attempt",
+        context: {
+          module: "settings",
+          action:
+            "updateWorkflowSettings",
+          restaurantId:
+            restaurant.id,
+          userId:
+            restaurantUser.id,
         },
-        {
-          status: 403,
-        }
-      )
+      });
+
+      return forbidden();
     }
 
-    const body = await request.json()
+    const body =
+      await request.json();
 
-console.log(
-  "BODY RECEIVED:",
-  body
-)
+    const parsed =
+      schema.safeParse(body);
 
-const parsed =
-  schema.safeParse(body)
+    if (!parsed.success) {
+      logger.warn({
+        message:
+          "Invalid workflow settings payload",
+        context: {
+          module: "settings",
+          action:
+            "updateWorkflowSettings",
+          restaurantId:
+            restaurant.id,
+          userId:
+            restaurantUser.id,
+          metadata: {
+            issues:
+              parsed.error.flatten(),
+          },
+        },
+      });
 
-if (!parsed.success) {
-  console.log(
-    "ZOD ERROR:",
-    parsed.error.format()
-  )
-
-  return NextResponse.json(
-    {
-      success: false,
-      error: "Invalid settings",
-    },
-    {
-      status: 400,
+      return badRequest(
+        "Invalid settings.",
+        parsed.error.flatten(),
+      );
     }
-  )
-}
 
-    const workflow_mode =
-  parsed.data.workflow_mode ??
-  "simple"
-
-const table_workflow_mode =
-  parsed.data.table_workflow_mode ??
-  "simple"
-
-    const { error } =
-  await supabaseAdmin
-    .from("restaurants")
-    .update({
+    const {
       workflow_mode,
       table_workflow_mode,
-    })
-    .eq("id", restaurant.id)
+    } = parsed.data;
+
+    const { error } =
+      await supabaseAdmin
+        .from("restaurants")
+        .update({
+          workflow_mode,
+          table_workflow_mode,
+        })
+        .eq(
+          "id",
+          restaurant.id,
+        );
 
     if (error) {
-      console.error(
-        "WORKFLOW SETTINGS UPDATE ERROR:",
-        error
-      )
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Failed to save settings",
+      logger.error({
+        message:
+          "Failed to update workflow settings",
+        error,
+        context: {
+          module: "settings",
+          action:
+            "updateWorkflowSettings",
+          restaurantId:
+            restaurant.id,
+          userId:
+            restaurantUser.id,
         },
-        {
-          status: 500,
-        }
-      )
+      });
+
+      return fail(error);
     }
 
-    return NextResponse.json({
-      success: true,
-    })
-  } catch (error) {
-    console.error(
-      "WORKFLOW SETTINGS PATCH ERROR:",
-      error
-    )
-
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          "Failed to save settings",
+    logger.audit({
+      message:
+        "Workflow settings updated",
+      context: {
+        module: "settings",
+        action:
+          "updateWorkflowSettings",
+        restaurantId:
+          restaurant.id,
+        userId:
+          restaurantUser.id,
+        metadata: {
+          workflow_mode,
+          table_workflow_mode,
+        },
       },
-      {
-        status: 500,
-      }
-    )
+    });
+
+    return ok(
+      undefined,
+      "Workflow settings updated successfully.",
+    );
+  } catch (error) {
+    logger.error({
+      message:
+        "Unexpected error while updating workflow settings",
+      error,
+      context: {
+        module: "settings",
+        action:
+          "updateWorkflowSettings",
+      },
+    });
+
+    return fail(error);
   }
-}   
+}
